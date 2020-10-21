@@ -198,7 +198,7 @@ public class ProfileCompiledMethodsPhase extends Phase {
         for (Block block : blocks) {
             for (FixedNode fixed : block.getNodes()) {
                 if (fixed instanceof Invoke) {
-                   return true;
+                    return true;
                 }
             }
         }
