@@ -194,7 +194,7 @@ public class ProfileCompiledMethodsPhase extends Phase {
         return 2;
     }
 
-    private static boolean hasInvoke(Collection<Block> blocks) {        
+    private static boolean hasInvoke(Collection<Block> blocks) {
         for (Block block : blocks) {
             for (FixedNode fixed : block.getNodes()) {
                 if (fixed instanceof Invoke) {
