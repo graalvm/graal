@@ -12,7 +12,10 @@ import * as net from 'net';
 import { GenericNotificationHandler, LanguageClient, LanguageClientOptions, StreamInfo } from 'vscode-languageclient';
 import { getGVMConfig } from './graalVMConfiguration';
 
+const CONNECTION_NUM_RETRIES = 3;
+const CONNECTION_RETRY_TIMEOUT = 500;
 export const LSPORT: number = 8123;
+const LSHOST: string = '127.0.0.1';
 const POLYGLOT: string = 'polyglot';
 const delegateLanguageServers: Set<() => Thenable<String>> = new Set();
 
@@ -37,25 +40,19 @@ export function startLanguageServer(graalVMHome: string) {
                 lspArgs().then(args => {
 					const lspArg = args.find(arg => arg.startsWith('--lsp='));
 					const lsPort = lspArg ? parseInt(lspArg.substring(6)) : LSPORT;
+					if (vscode.workspace.getConfiguration('graalvm').get('languageServer.enableDebugMode')) {
+						args.push('--vm.Xrunjdwp:transport=dt_socket,server=y,address=8000,suspend=n');
+					}
 					const serverProcess = cp.spawn(re, args.concat(['--experimental-options', '--shell']), { cwd: serverWorkDir });
 					if (!serverProcess || !serverProcess.pid) {
 						reject(`Launching server using command ${re} failed.`);
 					} else {
 						languageServerPID = serverProcess.pid;
 						serverProcess.stderr.once('data', data => {
-							reject(data);
+							console.error('[GraalLSP process stderr] ' + new String(data));
 						});
 						serverProcess.stdout.once('data', () => {
-							const socket = new net.Socket();
-							socket.once('error', (e) => {
-								reject(e);
-							});
-							socket.connect(lsPort, '127.0.0.1', () => {
-								resolve({
-									reader: socket,
-									writer: socket
-								});
-							});
+							connectAndRetryIfRefused(new net.Socket(), LSHOST, lsPort, resolve, reject, CONNECTION_NUM_RETRIES);
 						});
 					}
 				});
@@ -64,6 +61,26 @@ export function startLanguageServer(graalVMHome: string) {
 			vscode.window.showErrorMessage('Cannot find runtime ' + POLYGLOT + ' within your GraalVM installation.');
 		}
 	}
+}
+
+function connectAndRetryIfRefused(socket: net.Socket, host: string, port: number, resolve: any, reject: any, numRetries: number): void {
+	socket.once('error', (e) => {
+		if (numRetries > 0 && e.message.includes('ECONNREFUSED')) {
+			// Wait a bit and retry to connect. This might be necessary if debug mode is enabled.
+			setTimeout(() => {
+				console.log('Retrying to connect to GraalLS...');
+				connectAndRetryIfRefused(socket, host, port, resolve, reject, numRetries - 1);
+			}, CONNECTION_RETRY_TIMEOUT);
+		} else {
+			reject(new String(e));
+		}
+	});
+	socket.connect(port, host, () => {
+		resolve({
+			reader: socket,
+			writer: socket
+		});
+	});
 }
 
 export function connectToLanguageServer(connection: (() => Thenable<StreamInfo>)) {
@@ -84,8 +101,9 @@ export function connectToLanguageServer(connection: (() => Thenable<StreamInfo>)
 			prepareStatus.dispose();
 			vscode.window.setStatusBarMessage('GraalLS is ready.', 3000);
 			resolve(client);
-		}).catch(() => {
+		}).catch((e) => {
 			prepareStatus.dispose();
+			vscode.window.showErrorMessage('GraalLS error: ' + e);
 			vscode.window.setStatusBarMessage('GraalLS failed to initialize.', 3000);
 			resolve(client);
 		});
