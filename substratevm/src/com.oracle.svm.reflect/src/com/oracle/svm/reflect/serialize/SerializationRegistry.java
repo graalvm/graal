@@ -23,7 +23,7 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package com.oracle.svm.core.jdk.serialize;
+package com.oracle.svm.reflect.serialize;
 
 public interface SerializationRegistry {
 
