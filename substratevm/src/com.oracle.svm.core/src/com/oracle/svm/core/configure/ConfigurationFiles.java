@@ -94,9 +94,6 @@ public final class ConfigurationFiles {
         public static final HostedOptionKey<LocatableMultiOptionValue.Strings> JNIConfigurationFiles = new HostedOptionKey<>(new LocatableMultiOptionValue.Strings());
         @Option(help = "Resources describing program elements to be made accessible via JNI (see JNIConfigurationFiles).", type = OptionType.User)//
         public static final HostedOptionKey<LocatableMultiOptionValue.Strings> JNIConfigurationResources = new HostedOptionKey<>(new LocatableMultiOptionValue.Strings());
-
-        @Option(help = "Comma-separated list of file names with declarative substitutions", type = OptionType.User)//
-        public static final HostedOptionKey<LocatableMultiOptionValue.Strings> SubstitutionFiles = new HostedOptionKey<>(new LocatableMultiOptionValue.Strings());
     }
 
     public static List<Path> findConfigurationFiles(String fileName) {

@@ -24,29 +24,6 @@
  */
 package com.oracle.svm.driver;
 
-import com.oracle.graal.pointsto.api.PointstoOptions;
-import com.oracle.svm.core.FallbackExecutor;
-import com.oracle.svm.core.FallbackExecutor.Options;
-import com.oracle.svm.core.OS;
-import com.oracle.svm.core.SubstrateOptions;
-import com.oracle.svm.core.SubstrateUtil;
-import com.oracle.svm.core.configure.ConfigurationFiles;
-import com.oracle.svm.core.option.SubstrateOptionsParser;
-import com.oracle.svm.core.util.ClasspathUtils;
-import com.oracle.svm.core.util.UserError;
-import com.oracle.svm.core.util.VMError;
-import com.oracle.svm.driver.MacroOption.EnabledOption;
-import com.oracle.svm.driver.MacroOption.MacroOptionKind;
-import com.oracle.svm.driver.MacroOption.Registry;
-import com.oracle.svm.hosted.AbstractNativeImageClassLoaderSupport;
-import com.oracle.svm.hosted.NativeImageGeneratorRunner;
-import com.oracle.svm.hosted.NativeImageSystemClassLoader;
-import com.oracle.svm.util.ModuleSupport;
-import org.graalvm.compiler.options.OptionKey;
-import org.graalvm.compiler.serviceprovider.JavaVersionUtil;
-import org.graalvm.nativeimage.Platform;
-import org.graalvm.nativeimage.ProcessProperties;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -93,6 +70,30 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import org.graalvm.compiler.options.OptionKey;
+import org.graalvm.compiler.serviceprovider.JavaVersionUtil;
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.ProcessProperties;
+
+import com.oracle.graal.pointsto.api.PointstoOptions;
+import com.oracle.svm.core.FallbackExecutor;
+import com.oracle.svm.core.FallbackExecutor.Options;
+import com.oracle.svm.core.OS;
+import com.oracle.svm.core.SubstrateOptions;
+import com.oracle.svm.core.SubstrateUtil;
+import com.oracle.svm.core.configure.ConfigurationFiles;
+import com.oracle.svm.core.option.SubstrateOptionsParser;
+import com.oracle.svm.core.util.ClasspathUtils;
+import com.oracle.svm.core.util.UserError;
+import com.oracle.svm.core.util.VMError;
+import com.oracle.svm.driver.MacroOption.EnabledOption;
+import com.oracle.svm.driver.MacroOption.MacroOptionKind;
+import com.oracle.svm.driver.MacroOption.Registry;
+import com.oracle.svm.hosted.AbstractNativeImageClassLoaderSupport;
+import com.oracle.svm.hosted.NativeImageGeneratorRunner;
+import com.oracle.svm.hosted.NativeImageSystemClassLoader;
+import com.oracle.svm.util.ModuleSupport;
 
 public class NativeImage {
 
@@ -221,7 +222,6 @@ public class NativeImage {
     final String oHTargetPlatform = oH(SubstrateOptions.TargetPlatform);
 
     /* List arguments */
-    final String oHSubstitutionFiles = oH(ConfigurationFiles.Options.SubstitutionFiles);
     final String oHReflectionConfigurationFiles = oH(ConfigurationFiles.Options.ReflectionConfigurationFiles);
     final String oHDynamicProxyConfigurationFiles = oH(ConfigurationFiles.Options.DynamicProxyConfigurationFiles);
     final String oHResourceConfigurationFiles = oH(ConfigurationFiles.Options.ResourceConfigurationFiles);
