@@ -436,7 +436,6 @@ class ToolchainConfig(object):
     def _get_jar_dists(self):
         return [d if ":" in d else self.suite.name + ":" + d for d in self.dist]
 
-
 _suite.toolchain = ToolchainConfig('native', 'SULONG_TOOLCHAIN_LAUNCHERS', 'SULONG_BOOTSTRAP_TOOLCHAIN',
                                    # unfortunately, we cannot define those in the suite.py because graalvm component
                                    # registration runs before the suite is properly initialized

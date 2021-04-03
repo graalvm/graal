@@ -39,7 +39,7 @@
 # SOFTWARE.
 #
 suite = {
-  "mxversion" : "5.279.1",
+  "mxversion" : "5.284.0",
   "name" : "truffle",
   "version" : "21.1.0",
   "release" : False,
@@ -624,6 +624,12 @@ suite = {
         "linux" : {
           "<others>" : {
             "cflags" : ["-g", "-Wall", "-Werror", "-D_GNU_SOURCE"],
+            "ldlibs" : ["-ldl"],
+          },
+        },
+        "linux-musl" : {
+          "<others>" : {
+            "cflags" : ["-g", "-Wall", "-Werror"],
             "ldlibs" : ["-ldl"],
           },
         },

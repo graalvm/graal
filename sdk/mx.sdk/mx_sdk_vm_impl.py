@@ -812,6 +812,7 @@ class BaseGraalVmLayoutDistribution(_with_metaclass(ABCMeta, mx.LayoutDistributi
         _metadata_dict.setdefault('JAVA_VERSION', quote(_src_jdk.version))
         _metadata_dict.setdefault('OS_NAME', quote(get_graalvm_os()))
         _metadata_dict.setdefault('OS_ARCH', quote(mx.get_arch()))
+        _metadata_dict.setdefault('OS_VARIANT', quote(mx.get_os_variant()))
 
         _metadata_dict['GRAALVM_VERSION'] = quote(_suite.release_version())
         _source = _metadata_dict.get('SOURCE') or ''
@@ -1221,6 +1222,8 @@ class NativePropertiesBuildTask(mx.ProjectBuildTask):
             elif isinstance(image_config, mx_sdk.LauncherConfig):
                 suffix = _exe_suffix
                 project_name_f = GraalVmLauncher.launcher_project_name
+                if mx.get_os() == 'linux' and mx.get_os_variant() == 'musl':
+                    build_args.append('-H:+StaticExecutableWithDynamicLibC')
             else:
                 raise mx.abort("Unsupported image config type: " + str(type(image_config)))
 
@@ -2042,8 +2045,13 @@ def _gen_gu_manifest(components, formatter, bundled=False):
     manifest["Bundle-Name"] = main_component.name
     manifest["Bundle-Symbolic-Name"] = "org.graalvm." + main_component.installable_id
     manifest["Bundle-Version"] = version
-    capability_fmt = 'org.graalvm; filter:="(&(graalvm_version={version})(os_name={os})(os_arch={arch})(java_version={java_version}))"'
+    capability_fmt = 'org.graalvm; filter:="(&(graalvm_version={version})(os_name={os}){variant}(os_arch={arch})(java_version={java_version}))"'
+    if mx.get_os_variant():
+        variant_filter = "(os_variant={})".format(mx.get_os_variant())
+    else:
+        variant_filter = ""
     manifest["Bundle-RequireCapability"] = capability_fmt.format(os=get_graalvm_os(),
+                                                                 variant = variant_filter,
                                                                  arch=mx.get_arch(),
                                                                  java_version=_src_jdk_version,
                                                                  version=version)

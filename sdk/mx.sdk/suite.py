@@ -39,7 +39,7 @@
 # SOFTWARE.
 #
 suite = {
-  "mxversion" : "5.282.0",
+  "mxversion" : "5.284.0",
   "name" : "sdk",
   "version" : "21.1.0",
   "release" : False,
@@ -123,6 +123,12 @@ suite = {
             "urls" : ["{host}/llvm-llvmorg-{version}-linux-aarch64.tar.gz"],
             "sha1" : "772d729ae66105ceeb647e8e69b3b6204dc9ff7b",
           }
+        },
+        "linux-musl" : {
+          "amd64" : {
+            "urls" : ["https://download.bell-sw.com/graalvm/llvm-llvmorg-{version}-linux-musl-amd64.tar.gz"],
+            "sha1" : "da41da0002fde587c9513b8adb15ca36e79fdbdb",
+          },
         },
         "darwin" : {
           "amd64" : {

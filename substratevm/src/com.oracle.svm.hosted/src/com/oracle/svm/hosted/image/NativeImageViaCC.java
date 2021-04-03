@@ -84,6 +84,10 @@ public abstract class NativeImageViaCC extends NativeImage {
         BinutilsCCLinkerInvocation() {
             additionalPreOptions.add("-z");
             additionalPreOptions.add("noexecstack");
+            if ("musl".equals(System.getProperty("substratevm.HostLibC"))) {
+                // musl linkers expect PIE by default
+                additionalPreOptions.add("-no-pie");
+            }
             if (SubstrateOptions.ForceNoROSectionRelocations.getValue()) {
                 additionalPreOptions.add("-fuse-ld=gold");
                 additionalPreOptions.add("-Wl,--rosegment");
