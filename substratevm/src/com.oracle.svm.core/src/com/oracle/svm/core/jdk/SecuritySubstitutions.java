@@ -212,6 +212,9 @@ class AccessControllerUtil {
         static AccessControlContext get() {
             return acc.get();
         }
+
+        static void set(AccessControlContext ctx) {
+        }
     }
 
     static class GET_CLASS_LOADER_CONTEXT {
@@ -220,6 +223,9 @@ class AccessControllerUtil {
         static AccessControlContext get() {
             return acc.get();
         }
+
+        static void set(AccessControlContext ctx) {
+        }
     }
 
     static class GET_LOOKUP_CONTEXT {
@@ -227,6 +233,9 @@ class AccessControllerUtil {
 
         static AccessControlContext get() {
             return acc.get();
+        }
+
+        static void set(AccessControlContext ctx) {
         }
     }
 
