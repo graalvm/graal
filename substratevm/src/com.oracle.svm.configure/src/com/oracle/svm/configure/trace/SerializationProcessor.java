@@ -58,7 +58,7 @@ public class SerializationProcessor extends AbstractProcessor {
                 return;
             }
 
-            serializationConfiguration.add((String) args.get(0), (String) args.get(1));
+            serializationConfiguration.register((String) args.get(0), (String) args.get(1));
         }
     }
 }

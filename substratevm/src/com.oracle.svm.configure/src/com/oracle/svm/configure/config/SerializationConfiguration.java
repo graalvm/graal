@@ -26,42 +26,52 @@
 package com.oracle.svm.configure.config;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.oracle.svm.configure.json.JsonPrintable;
 import com.oracle.svm.configure.json.JsonWriter;
-import com.oracle.svm.core.SubstrateUtil;
-import com.oracle.svm.core.configure.SerializationConfigurationParser;
+import org.graalvm.nativeimage.impl.RuntimeSerializationSupport;
 
-public class SerializationConfiguration implements JsonPrintable {
+public class SerializationConfiguration implements JsonPrintable, RuntimeSerializationSupport {
 
-    private static final String KEY_SEPARATOR = "|";
-
-    private final Set<String> serializations = ConcurrentHashMap.newKeySet();
-
-    public void add(String serializationTargetClass, String customTargetConstructorClass) {
-        serializations.add(serializationTargetClass + (customTargetConstructorClass != null ? KEY_SEPARATOR + customTargetConstructorClass : ""));
-    }
+    private final Set<SerializationConfigurationType> serializations = ConcurrentHashMap.newKeySet();
 
     @Override
     public void printJson(JsonWriter writer) throws IOException {
         writer.append('[').indent();
         String prefix = "";
-        for (String entry : serializations) {
-            writer.append(prefix);
-            writer.newline().append('{').newline();
-            String[] serializationKeyValues = SubstrateUtil.split(entry, KEY_SEPARATOR, 2);
-            String className = serializationKeyValues[0];
-            writer.quote(SerializationConfigurationParser.NAME_KEY).append(":").quote(className);
-            if (serializationKeyValues.length > 1) {
-                writer.append(",").newline();
-                writer.quote(SerializationConfigurationParser.CUSTOM_TARGET_CONSTRUCTOR_CLASS_KEY).append(":").quote(serializationKeyValues[1]);
-            }
-            writer.newline().append('}');
+        List<SerializationConfigurationType> list = new ArrayList<>(serializations);
+        list.sort(Comparator.comparing(SerializationConfigurationType::getQualifiedJavaName)
+                        .thenComparing(SerializationConfigurationType::getQualifiedCustomTargetConstructorJavaName));
+        for (SerializationConfigurationType type : list) {
+            writer.append(prefix).newline();
+            type.printJson(writer);
             prefix = ",";
         }
         writer.unindent().newline();
         writer.append(']').newline();
+    }
+
+    @Override
+    public void register(Class<?>... classes) {
+        for (Class<?> clazz : classes) {
+            register(clazz, null);
+        }
+    }
+
+    @Override
+    public void register(Class<?> clazz, Class<?> customTargetConstructorClazz) {
+        register(clazz.getName(), customTargetConstructorClazz == null ? null : customTargetConstructorClazz.getName());
+    }
+
+    @Override
+    public void register(String className, String customTargetConstructorClassName) {
+        String convertedClassName = SignatureUtil.toInternalClassName(className);
+        String convertedCustomTargetConstructorClassName = SignatureUtil.toInternalClassName(customTargetConstructorClassName);
+        serializations.add(new SerializationConfigurationType(convertedClassName, convertedCustomTargetConstructorClassName));
     }
 }
