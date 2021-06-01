@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -54,6 +54,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 
+import com.oracle.svm.core.SubstrateOptions;
+import com.oracle.svm.core.jdk.JNIPlatformNativeLibrarySupport;
 import org.graalvm.compiler.core.common.NumUtil;
 import org.graalvm.compiler.core.common.SuppressFBWarnings;
 import org.graalvm.compiler.serviceprovider.JavaVersionUtil;
@@ -333,6 +335,10 @@ public final class DynamicHub implements JavaKind.FormatWithToString, AnnotatedE
         perms.add(SecurityConstants.ALL_PERMISSION);
         CodeSource cs;
         try {
+            if (SubstrateOptions.UseDedicatedVMOperationThread.getValue()) {
+                // We need to initialize encodings before we can invoke toURI()
+                JNIPlatformNativeLibrarySupport.singleton().initializeBuiltinLibraries();
+            }
             // Try to use executable image's name as code source for the class.
             // The file location can be used by Java code to determine its location on disk, similar
             // to argv[0].
