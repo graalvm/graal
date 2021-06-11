@@ -183,7 +183,6 @@ public class ConfigurableClassInitialization implements ClassInitializationSuppo
                 return InitKind.RUN_TIME;
             } else {
                 return reportInitializationError(allowErrors, clazz, ex);
-
             }
         } catch (Throwable t) {
             return reportInitializationError(allowErrors, clazz, t);
@@ -682,5 +681,15 @@ public class ConfigurableClassInitialization implements ClassInitializationSuppo
             }
         }
         return false;
+    }
+
+    @Override
+    public InitKind getClassInitKind(Class<?> clazz) {
+        return classInitKinds.get(clazz);
+    }
+
+    @Override
+    public InitKind removeClassInitInfo(Class<?> clazz) {
+        return classInitKinds.remove(clazz);
     }
 }
