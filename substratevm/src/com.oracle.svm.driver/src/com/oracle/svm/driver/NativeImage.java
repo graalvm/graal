@@ -1092,6 +1092,10 @@ public class NativeImage {
             if (imageNameValue != null) {
                 addCustomImageBuilderArgs(injectHostedOptionOrigin(oHName + resolver.apply(imageNameValue), resourcePath.toUri().toString()));
             }
+            String imageClassValue = properties.get("ImageClass");
+            if (imageClassValue != null) {
+                addCustomImageBuilderArgs(oHClass + resolver.apply(imageClassValue));
+            }
             forEachPropertyValue(properties.get("JavaArgs"), this::addImageBuilderJavaArgs, resolver);
             forEachPropertyValue(properties.get("Args"), args, resolver);
         } else {
