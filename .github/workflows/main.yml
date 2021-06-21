@@ -41,59 +41,9 @@ jobs:
       matrix:
         include:
           - env:
-              JDK: "openjdk8"
-              GATE: "style,fullbuild"
-              PRIMARY: "substratevm"
-          - env:
-              JDK: "openjdk8"
-              GATE: "build,test"
-              PRIMARY: "compiler"
-          - env:
-              JDK: "openjdk8"
-              GATE: "build,test,helloworld"
-              PRIMARY: "substratevm"
-          - env:
-              JDK: "openjdk8"
-              GATE: "build,test,helloworld_debug"
-              PRIMARY: "substratevm"
-          - env:
-              JDK: "openjdk8"
-              GATE: "build,bootstraplite"
-              PRIMARY: "compiler"
-          - env:
-              JDK: "openjdk8"
-              GATE: "style,fullbuild,sulongBasic"
-              PRIMARY: "sulong"
-          - env:
-              JDK: "openjdk8"
-              GATE: "build,sulong"
-              PRIMARY: "vm"
-              DYNAMIC_IMPORTS: "/sulong,/substratevm"
-              DISABLE_POLYGLOT: true
-              DISABLE_LIBPOLYGLOT: true
-          - env:
-              JDK: "openjdk8"
-              GATE: "build,debuginfotest"
-              PRIMARY: "substratevm"
-          - env:
               JDK: "labsjdk-ce-11"
-              GATE: "build,debuginfotest"
-              PRIMARY: "substratevm"
-          - env:
-              JDK: "labsjdk-ce-11"
-              GATE: "style,fullbuild"
+              GATE: "style"
               PRIMARY: "compiler"
-          - env:
-              JDK: "labsjdk-ce-11"
-              GATE: "build,test"
-              PRIMARY: "compiler"
-          - env:
-              JDK: "labsjdk-ce-11"
-              GATE: "build,bootstraplite"
-              PRIMARY: "compiler"
-          - env:
-              JDK: "labsjdk-ce-11"
-              WITHOUT_VCS: true
     steps:
     - uses: actions/checkout@v2
       with:
@@ -159,3 +109,21 @@ jobs:
         else
           ${MX_PATH}/mx --primary-suite-path ${PRIMARY} --J @"-Xmx2g" --java-home=${JAVA_HOME} gate --strict-mode --tags ${GATE}
         fi
+    - name: Notify slack success
+      if: success()
+      env:
+        SLACK_BOT_TOKEN: xoxb-751263462801-1524443519971-vbyKGpYFTKr5Jj00RAdp1oMc
+      uses: oracle/github-action-slack-notify-build@v1
+      with:
+        channel_id: C01613ELDS6 #travis-ci
+        status: SUCCESS
+        color: good
+    - name: Notify slack fail
+      if: failure()
+      env:
+        SLACK_BOT_TOKEN: xoxb-751263462801-1524443519971-vbyKGpYFTKr5Jj00RAdp1oMc
+      uses: oracle/github-action-slack-notify-build@v1
+      with:
+        channel_id: C01613ELDS6 #travis-ci
+        status: FAILED
+        color: danger
