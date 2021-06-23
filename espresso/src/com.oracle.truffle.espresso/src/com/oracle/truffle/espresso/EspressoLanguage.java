@@ -64,7 +64,7 @@ import com.oracle.truffle.espresso.substitutions.Substitutions;
                 name = EspressoLanguage.NAME, //
                 implementationName = EspressoLanguage.IMPLEMENTATION_NAME, //
                 version = EspressoLanguage.VERSION, //
-                contextPolicy = TruffleLanguage.ContextPolicy.EXCLUSIVE, //
+                contextPolicy = TruffleLanguage.ContextPolicy.SHARED, //
                 dependentLanguages = {"nfi", "llvm"})
 @ProvidedTags({StandardTags.RootTag.class, StandardTags.RootBodyTag.class, StandardTags.StatementTag.class})
 public final class EspressoLanguage extends TruffleLanguage<EspressoContext> implements ClassLoaderCache {
@@ -88,8 +88,6 @@ public final class EspressoLanguage extends TruffleLanguage<EspressoContext> imp
     private final Names names;
     private final Types types;
     private final Signatures signatures;
-
-    private long startupClockNanos = 0;
 
     private ClassLoader cl;
 
@@ -139,13 +137,12 @@ public final class EspressoLanguage extends TruffleLanguage<EspressoContext> imp
 
     @Override
     protected void initializeContext(final EspressoContext context) throws Exception {
-        startupClockNanos = System.nanoTime();
         context.initializeContext();
     }
 
     @Override
     protected void finalizeContext(EspressoContext context) {
-        long elapsedTimeNanos = System.nanoTime() - startupClockNanos;
+        long elapsedTimeNanos = System.nanoTime() - context.getStartupClockNanos();
         long seconds = TimeUnit.NANOSECONDS.toSeconds(elapsedTimeNanos);
         if (seconds > 10) {
             context.getLogger().log(Level.FINE, "Time spent in Espresso: {0} s", seconds);

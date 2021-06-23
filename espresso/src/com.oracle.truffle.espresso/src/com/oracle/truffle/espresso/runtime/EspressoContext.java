@@ -107,30 +107,31 @@ public final class EspressoContext {
     private final TruffleLogger logger = TruffleLogger.getLogger(EspressoLanguage.ID);
 
     private final EspressoLanguage language;
-    private final TruffleLanguage.Env env;
+    @CompilationFinal private TruffleLanguage.Env env;
 
     private String[] mainArguments;
     private String[] vmArguments;
+    private long startupClockNanos = 0;
 
     // region Debug
-    private final TimerCollection timers;
+    @CompilationFinal private TimerCollection timers;
     // endregion Debug
 
     // region Profiling
-    private final AllocationReporter allocationReporter;
+    @CompilationFinal private AllocationReporter allocationReporter;
     // endregion Profiling
 
     // region Runtime
     private final StringTable strings;
-    private final ClassRegistries registries;
+    @CompilationFinal private ClassRegistries registries;
     private final Substitutions substitutions;
     private final MethodHandleIntrinsics methodHandleIntrinsics;
     // endregion Runtime
 
     // region Helpers
-    private final EspressoThreadManager threadManager;
-    private final EspressoShutdownHandler shutdownManager;
-    private final EspressoReferenceDrainer referenceDrainer;
+    @CompilationFinal private EspressoThreadManager threadManager;
+    @CompilationFinal private EspressoShutdownHandler shutdownManager;
+    @CompilationFinal private EspressoReferenceDrainer referenceDrainer;
     // endregion Helpers
 
     // region ID
@@ -159,24 +160,24 @@ public final class EspressoContext {
     // Checkstyle: stop field name check
 
     // Performance control
-    public final boolean InlineFieldAccessors;
-    public final boolean InlineMethodHandle;
-    public final boolean SplitMethodHandles;
-    public final boolean livenessAnalysis;
+    @CompilationFinal public boolean InlineFieldAccessors;
+    @CompilationFinal public boolean InlineMethodHandle;
+    @CompilationFinal public boolean SplitMethodHandles;
+    @CompilationFinal public boolean livenessAnalysis;
 
     // Behavior control
-    public final boolean EnableManagement;
-    public final EspressoOptions.VerifyMode Verify;
-    public final EspressoOptions.SpecCompliancyMode SpecCompliancyMode;
-    public final boolean Polyglot;
-    public final boolean ExitHost;
-    public final boolean EnableSignals;
-    private final String multiThreadingDisabled;
-    public final boolean NativeAccessAllowed;
-    public final boolean EnableAgents;
+    @CompilationFinal public boolean EnableManagement;
+    @CompilationFinal public EspressoOptions.VerifyMode Verify;
+    @CompilationFinal public EspressoOptions.SpecCompliancyMode SpecCompliancyMode;
+    @CompilationFinal public boolean Polyglot;
+    @CompilationFinal public boolean ExitHost;
+    @CompilationFinal public boolean EnableSignals;
+    @CompilationFinal private String multiThreadingDisabled;
+    @CompilationFinal public boolean NativeAccessAllowed;
+    @CompilationFinal public boolean EnableAgents;
 
     // Debug option
-    public final com.oracle.truffle.espresso.jdwp.api.JDWPOptions JDWPOptions;
+    @CompilationFinal public com.oracle.truffle.espresso.jdwp.api.JDWPOptions JDWPOptions;
 
     // Checkstyle: resume field name check
     // endregion Options
@@ -225,13 +226,33 @@ public final class EspressoContext {
     }
 
     public EspressoContext(TruffleLanguage.Env env, EspressoLanguage language) {
-        this.env = env;
         this.language = language;
 
-        this.registries = new ClassRegistries(this);
         this.strings = new StringTable(this);
         this.substitutions = new Substitutions(this);
         this.methodHandleIntrinsics = new MethodHandleIntrinsics(this);
+
+        setEnv(env);
+    }
+
+    private static Set<String> knownSingleThreadedLanguages(TruffleLanguage.Env env) {
+        Set<String> singleThreaded = new HashSet<>();
+        for (LanguageInfo languageInfo : env.getPublicLanguages().values()) {
+            switch (languageInfo.getId()) {
+                case "wasm":    // fallthrough
+                case "js":      // fallthrough
+                case "R":       // fallthrough
+                case "python":  // it's configurable for python, be shy
+                    singleThreaded.add(languageInfo.getId());
+            }
+        }
+        return singleThreaded;
+    }
+
+    public void setEnv(TruffleLanguage.Env env) {
+        this.env = env;
+
+        this.registries = new ClassRegistries(this);
 
         this.threadManager = new EspressoThreadManager(this);
         this.referenceDrainer = new EspressoReferenceDrainer(this);
@@ -274,20 +295,6 @@ public final class EspressoContext {
         this.Polyglot = env.getOptions().get(EspressoOptions.Polyglot);
 
         this.vmArguments = buildVmArguments();
-    }
-
-    private static Set<String> knownSingleThreadedLanguages(TruffleLanguage.Env env) {
-        Set<String> singleThreaded = new HashSet<>();
-        for (LanguageInfo languageInfo : env.getPublicLanguages().values()) {
-            switch (languageInfo.getId()) {
-                case "wasm":    // fallthrough
-                case "js":      // fallthrough
-                case "R":       // fallthrough
-                case "python":  // it's configurable for python, be shy
-                    singleThreaded.add(languageInfo.getId());
-            }
-        }
-        return singleThreaded;
     }
 
     public ClassRegistries getRegistries() {
@@ -401,6 +408,7 @@ public final class EspressoContext {
                         "Native access is not allowed by the host environment but it's required to load Espresso/Java native libraries. " +
                                         "Allow native access on context creation e.g. contextBuilder.allowNativeAccess(true)");
         assert !this.initialized;
+        startupClockNanos = System.nanoTime();
         eventListener = new EmptyListener();
         // Setup finalization support in the host VM.
         FinalizationSupport.ensureInitialized();
@@ -417,6 +425,10 @@ public final class EspressoContext {
 
     public VMListener getJDWPListener() {
         return eventListener;
+    }
+
+    public long getStartupClockNanos() {
+        return startupClockNanos;
     }
 
     public Source findOrCreateSource(Method method) {
