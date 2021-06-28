@@ -358,6 +358,10 @@ public final class CallNode extends Node implements Comparable<CallNode> {
         return trivial;
     }
 
+    public boolean isExcluded(String optionsExcludeInlining) {
+        return getTruffleAST().getName().contains(optionsExcludeInlining);
+    }
+
     public Object getPolicyData() {
         return policyData;
     }
