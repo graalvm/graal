@@ -359,7 +359,7 @@ public final class CallNode extends Node implements Comparable<CallNode> {
     }
 
     public boolean isExcluded(String optionsExcludeInlining) {
-        return getTruffleAST().getName().contains(optionsExcludeInlining);
+        return !optionsExcludeInlining.isEmpty() && getTruffleAST().getName().contains(optionsExcludeInlining);
     }
 
     public Object getPolicyData() {
