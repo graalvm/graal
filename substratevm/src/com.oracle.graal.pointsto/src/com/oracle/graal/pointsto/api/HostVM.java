@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,6 +27,7 @@ package com.oracle.graal.pointsto.api;
 import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 
+import com.oracle.graal.pointsto.StaticAnalysisEngine;
 import org.graalvm.compiler.core.common.spi.ForeignCallDescriptor;
 import org.graalvm.compiler.core.common.spi.ForeignCallsProvider;
 import org.graalvm.compiler.java.GraphBuilderPhase;
@@ -104,12 +105,12 @@ public interface HostVM {
 
     void checkType(ResolvedJavaType type, AnalysisUniverse universe);
 
-    void methodAfterParsingHook(BigBang bb, AnalysisMethod method, StructuredGraph graph);
+    void methodAfterParsingHook(StaticAnalysisEngine analysis, AnalysisMethod method, StructuredGraph graph);
 
     void methodBeforeTypeFlowCreationHook(BigBang bb, AnalysisMethod method, StructuredGraph graph);
 
-    default AnalysisParsedGraph parseBytecode(BigBang bb, AnalysisMethod analysisMethod) {
-        return AnalysisParsedGraph.parseBytecode(bb, analysisMethod);
+    default AnalysisParsedGraph parseBytecode(StaticAnalysisEngine analysis, AnalysisMethod analysisMethod) {
+        return AnalysisParsedGraph.parseBytecode(analysis, analysisMethod);
     }
 
     default boolean hasNeverInlineDirective(@SuppressWarnings("unused") ResolvedJavaMethod method) {

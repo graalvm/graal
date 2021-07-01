@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,6 +24,7 @@
  */
 package com.oracle.svm.hosted.lambda;
 
+import com.oracle.graal.pointsto.StaticAnalysisEngine;
 import org.graalvm.compiler.java.LambdaUtils;
 import java.util.HashSet;
 import java.util.Set;
@@ -34,7 +35,6 @@ import org.graalvm.compiler.debug.DebugContext.Builder;
 import org.graalvm.compiler.options.OptionValues;
 import org.graalvm.compiler.printer.GraalDebugHandlersFactory;
 
-import com.oracle.graal.pointsto.BigBang;
 import com.oracle.graal.pointsto.infrastructure.SubstitutionProcessor;
 import com.oracle.svm.hosted.c.GraalAccess;
 import com.oracle.svm.hosted.phases.NoClassInitializationPlugin;
@@ -52,15 +52,15 @@ import org.graalvm.compiler.phases.util.Providers;
  */
 public class LambdaProxyRenamingSubstitutionProcessor extends SubstitutionProcessor {
 
-    private final BigBang bb;
+    private final StaticAnalysisEngine analysis;
 
     private final ConcurrentHashMap<ResolvedJavaType, LambdaSubstitutionType> typeSubstitutions;
     private final Set<String> uniqueLambdaProxyNames;
 
-    LambdaProxyRenamingSubstitutionProcessor(BigBang bigBang) {
+    LambdaProxyRenamingSubstitutionProcessor(StaticAnalysisEngine analysis) {
         this.typeSubstitutions = new ConcurrentHashMap<>();
         this.uniqueLambdaProxyNames = new HashSet<>();
-        this.bb = bigBang;
+        this.analysis = analysis;
     }
 
     @Override
@@ -83,8 +83,8 @@ public class LambdaProxyRenamingSubstitutionProcessor extends SubstitutionProces
 
     private LambdaSubstitutionType getSubstitution(ResolvedJavaType original) {
         return typeSubstitutions.computeIfAbsent(original, (key) -> {
-            OptionValues options = bb.getOptions();
-            DebugContext debug = new Builder(options, new GraalDebugHandlersFactory(bb.getProviders().getSnippetReflection())).build();
+            OptionValues options = analysis.getOptions();
+            DebugContext debug = new Builder(options, new GraalDebugHandlersFactory(analysis.getProviders().getSnippetReflection())).build();
 
             Providers providers = GraalAccess.getOriginalProviders();
             String lambdaTargetName = LambdaUtils.findStableLambdaName(new NoClassInitializationPlugin(), providers, key, options, debug, this);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Iterator;
 
+import com.oracle.graal.pointsto.StaticAnalysisEngine;
 import org.graalvm.compiler.options.OptionValues;
 
 import com.oracle.graal.pointsto.BigBang;
@@ -208,7 +209,7 @@ public class MultiTypeState extends TypeState {
     public TypeState exactTypeState(BigBang bb, AnalysisType exactType) {
         if (containsType(exactType)) {
             AnalysisObject[] resultObjects = objectsArray(exactType);
-            return new SingleTypeState(bb, canBeNull, bb.analysisPolicy().makePoperties(bb, resultObjects), resultObjects);
+            return new SingleTypeState(bb, canBeNull, bb.analysisPolicy().makeProperties(bb, resultObjects), resultObjects);
         } else {
             return EmptyTypeState.SINGLETON;
         }
@@ -331,8 +332,14 @@ public class MultiTypeState extends TypeState {
     }
 
     @Override
-    public boolean closeToAllInstantiated(BigBang bb) {
-        if (typesCount > 200 && bb != null) {
+    public boolean closeToAllInstantiated(StaticAnalysisEngine analysis) {
+        if (!(analysis instanceof BigBang)) {
+            // todo(d-kozak) points to agnostic way?
+            // shouldn't be that hard
+            return false;
+        }
+        BigBang bb = (BigBang) analysis;
+        if (typesCount > 200) {
             MultiTypeState allInstState = (MultiTypeState) bb.getAllInstantiatedTypeFlow().getState();
             return typesCount * 100L / allInstState.typesCount > 75;
         }

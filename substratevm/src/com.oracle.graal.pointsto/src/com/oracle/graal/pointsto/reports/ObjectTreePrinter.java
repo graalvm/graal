@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -44,9 +44,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.oracle.graal.pointsto.StaticAnalysisEngine;
 import org.graalvm.compiler.options.OptionValues;
 
-import com.oracle.graal.pointsto.BigBang;
 import com.oracle.graal.pointsto.ObjectScanner;
 import com.oracle.graal.pointsto.api.PointstoOptions;
 import com.oracle.graal.pointsto.meta.AnalysisField;
@@ -60,18 +60,18 @@ import jdk.vm.ci.meta.ResolvedJavaMethod;
 
 public final class ObjectTreePrinter extends ObjectScanner {
 
-    public static void print(BigBang bigbang, String path, String reportName) {
+    public static void print(StaticAnalysisEngine analysis, String path, String reportName) {
         ReportUtils.report("object tree", path + File.separatorChar + "reports", "object_tree_" + reportName, "txt",
-                        writer -> ObjectTreePrinter.doPrint(writer, bigbang));
+                        writer -> ObjectTreePrinter.doPrint(writer, analysis));
     }
 
-    private static void doPrint(PrintWriter out, BigBang bigbang) {
-        if (!PointstoOptions.ExhaustiveHeapScan.getValue(bigbang.getOptions())) {
-            String types = Arrays.stream(bigbang.skippedHeapTypes()).map(t -> t.toJavaName()).collect(Collectors.joining(", "));
+    private static void doPrint(PrintWriter out, StaticAnalysisEngine analysis) {
+        if (!PointstoOptions.ExhaustiveHeapScan.getValue(analysis.getOptions())) {
+            String types = Arrays.stream(analysis.skippedHeapTypes()).map(t -> t.toJavaName()).collect(Collectors.joining(", "));
             System.out.println("Exhaustive heap scanning is disabled. The object tree will not contain all instances of types: " + types);
             System.out.println("Exhaustive heap scanning can be turned on using -H:+ExhaustiveHeapScan.");
         }
-        ObjectTreePrinter printer = new ObjectTreePrinter(bigbang);
+        ObjectTreePrinter printer = new ObjectTreePrinter(analysis);
         printer.scanBootImageHeapRoots(fieldComparator, positionComparator);
         printer.printTypeHierarchy(out);
     }
@@ -119,8 +119,8 @@ public final class ObjectTreePrinter extends ObjectScanner {
             return type.toJavaName(true);
         }
 
-        String constantFormat(BigBang bb) {
-            return constantAsString(bb, constant);
+        String constantFormat(StaticAnalysisEngine analysis) {
+            return constantAsString(analysis, constant);
         }
 
         boolean isNull() {
@@ -145,12 +145,12 @@ public final class ObjectTreePrinter extends ObjectScanner {
             return NullValue.INSTANCE;
         }
 
-        static ObjectNodeBase fromConstant(BigBang bb, JavaConstant constant) {
-            return fromConstant(bb, constant, null);
+        static ObjectNodeBase fromConstant(StaticAnalysisEngine analysis, JavaConstant constant) {
+            return fromConstant(analysis, constant, null);
         }
 
-        static ObjectNodeBase fromConstant(BigBang bb, JavaConstant constant, RootSource rootSource) {
-            AnalysisType type = constantType(bb, constant);
+        static ObjectNodeBase fromConstant(StaticAnalysisEngine analysis, JavaConstant constant, RootSource rootSource) {
+            AnalysisType type = constantType(analysis, constant);
             if (type == null) {
                 return ObjectNode.forNull();
             } else if (type.isArray()) {
@@ -294,13 +294,13 @@ public final class ObjectTreePrinter extends ObjectScanner {
     private final SimpleMatcher expandRootMatcher;
     private final SimpleMatcher defaultSuppressRootMatcher;
 
-    private ObjectTreePrinter(BigBang bigbang) {
-        super(bigbang, null, new ReusableSet());
+    private ObjectTreePrinter(StaticAnalysisEngine analysis) {
+        super(analysis, null, new ReusableSet());
 
         /* Use linked hash map for predictable iteration order. */
         this.constantToNode = new LinkedHashMap<>();
 
-        OptionValues options = bigbang.getOptions();
+        OptionValues options = analysis.getOptions();
 
         this.suppressTypeMatcher = new SimpleMatcher(AnalysisReportsOptions.ImageObjectTreeSuppressTypes.getValue(options).trim().split(","));
         this.expandTypeMatcher = new SimpleMatcher(AnalysisReportsOptions.ImageObjectTreeExpandTypes.getValue(options).trim().split(","));
@@ -368,23 +368,23 @@ public final class ObjectTreePrinter extends ObjectScanner {
             if (reason instanceof FieldScan) {
                 ResolvedJavaField field = ((FieldScan) reason).getField();
                 if (field.isStatic()) {
-                    node = ObjectNodeBase.fromConstant(bb, scannedValue, new RootSource(field));
+                    node = ObjectNodeBase.fromConstant(analysis, scannedValue, new RootSource(field));
                 } else {
-                    node = ObjectNodeBase.fromConstant(bb, scannedValue);
+                    node = ObjectNodeBase.fromConstant(analysis, scannedValue);
                 }
             } else if (reason instanceof MethodScan) {
                 ResolvedJavaMethod method = ((MethodScan) reason).getMethod();
-                node = ObjectNodeBase.fromConstant(bb, scannedValue, new RootSource(method));
+                node = ObjectNodeBase.fromConstant(analysis, scannedValue, new RootSource(method));
             } else {
-                node = ObjectNodeBase.fromConstant(bb, scannedValue);
+                node = ObjectNodeBase.fromConstant(analysis, scannedValue);
             }
 
             return node;
         });
     }
 
-    static String constantAsString(BigBang bb, JavaConstant constant) {
-        Object object = constantAsObject(bb, constant);
+    static String constantAsString(StaticAnalysisEngine analysis, JavaConstant constant) {
+        Object object = constantAsObject(analysis, constant);
         if (object instanceof String) {
             String str = (String) object;
             str = escape(str);
@@ -473,16 +473,16 @@ public final class ObjectTreePrinter extends ObjectScanner {
         Deque<WorkListEntry> workList = new ArrayDeque<>();
         if (expandedNodes.containsKey(root)) {
             out.format("%s%s %s id-ref=%s toString=%s%n", lastRoot ? LAST_CHILD : CHILD, "root",
-                            root.source.format(), expandedNodes.get(root), root.constantFormat(bb));
+                            root.source.format(), expandedNodes.get(root), root.constantFormat(analysis));
         } else {
             if (suppressRoot(root.source)) {
                 out.format("%s%s %s toString=%s (expansion suppressed)%n", lastRoot ? LAST_CHILD : CHILD, "root",
-                                root.source.format(), root.constantFormat(bb));
+                                root.source.format(), root.constantFormat(analysis));
             } else {
                 out.format("%s%s %s value:%n", lastRoot ? LAST_CHILD : CHILD, "root", root.source.format());
                 if (suppressType(root.type)) {
                     out.format("%s%s%s toString=%s (expansion suppressed)%n", lastRoot ? EMPTY_INDENT : CONNECTING_INDENT, LAST_CHILD,
-                                    root.typeFormat(), root.constantFormat(bb));
+                                    root.typeFormat(), root.constantFormat(analysis));
                 } else {
                     workList.push(new WorkListEntry(lastRoot ? EMPTY_INDENT : CONNECTING_INDENT, LAST_CHILD, root, true, new LinkedHashSet<>()));
                 }
@@ -495,12 +495,12 @@ public final class ObjectTreePrinter extends ObjectScanner {
                 ObjectNode objectNode = (ObjectNode) entry.node;
                 if (expandedNodes.containsKey(objectNode)) {
                     out.format("%s%s%s id-ref=%s toString=%s%n", entry.prefix, entry.marker,
-                                    objectNode.typeFormat(), expandedNodes.get(objectNode), objectNode.constantFormat(bb));
+                                    objectNode.typeFormat(), expandedNodes.get(objectNode), objectNode.constantFormat(analysis));
                 } else {
                     int id = nodeId++;
                     expandedNodes.put(objectNode, id);
                     out.format("%s%s%s id=%s toString=%s ", entry.prefix, entry.marker,
-                                    objectNode.typeFormat(), id, objectNode.constantFormat(bb));
+                                    objectNode.typeFormat(), id, objectNode.constantFormat(analysis));
 
                     if (hasProperties(objectNode)) {
                         out.format("fields:%n");
@@ -514,12 +514,12 @@ public final class ObjectTreePrinter extends ObjectScanner {
                 ArrayObjectNode arrayObjectNode = (ArrayObjectNode) entry.node;
                 if (expandedNodes.containsKey(arrayObjectNode)) {
                     out.format("%s%s%s id-ref=%s toString=%s%n", entry.prefix, entry.marker,
-                                    arrayObjectNode.typeFormat(), expandedNodes.get(arrayObjectNode), arrayObjectNode.constantFormat(bb));
+                                    arrayObjectNode.typeFormat(), expandedNodes.get(arrayObjectNode), arrayObjectNode.constantFormat(analysis));
                 } else {
                     int id = nodeId++;
                     expandedNodes.put(arrayObjectNode, id);
                     out.format("%s%s%s id=%s toString=%s ", entry.prefix, entry.marker,
-                                    arrayObjectNode.typeFormat(), id, arrayObjectNode.constantFormat(bb));
+                                    arrayObjectNode.typeFormat(), id, arrayObjectNode.constantFormat(analysis));
 
                     if (hasProperties(arrayObjectNode)) {
                         out.format("elements (excluding null):%n");
@@ -536,7 +536,7 @@ public final class ObjectTreePrinter extends ObjectScanner {
                 } else {
                     if (suppressType(fieldNode.value.type)) {
                         out.format("%s%s%s toString=%s (expansion suppressed)%n", entry.prefix, entry.marker,
-                                        fieldNode.format(), fieldNode.value.constantFormat(bb));
+                                        fieldNode.format(), fieldNode.value.constantFormat(analysis));
                     } else {
                         out.format("%s%s%s value:%n", entry.prefix, entry.marker, fieldNode.format());
                         String prefix = entry.prefix + (entry.lastProperty ? EMPTY_INDENT : CONNECTING_INDENT);
@@ -548,7 +548,7 @@ public final class ObjectTreePrinter extends ObjectScanner {
                 if (!elementNode.value.isNull()) {
                     if (suppressType(elementNode.value.type)) {
                         out.format("%s%s%s toString=%s (expansion suppressed)%n", entry.prefix, entry.marker,
-                                        elementNode.format(), elementNode.value.constantFormat(bb));
+                                        elementNode.format(), elementNode.value.constantFormat(analysis));
                     } else {
                         workList.push(new WorkListEntry(entry.prefix, (entry.lastProperty ? LAST_CHILD : CHILD) + "[" + elementNode.index + "] ",
                                         elementNode.value, entry.lastProperty, entry.trail));

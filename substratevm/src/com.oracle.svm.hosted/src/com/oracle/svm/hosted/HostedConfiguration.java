@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,6 +31,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 
+import com.oracle.graal.pointsto.StaticAnalysisEngine;
+import com.oracle.svm.core.util.VMError;
+import com.oracle.svm.hosted.analysis.NativeImageStaticAnalysisEngine;
 import org.graalvm.compiler.api.replacements.SnippetReflectionProvider;
 import org.graalvm.compiler.core.common.CompressEncoding;
 import org.graalvm.compiler.debug.DebugContext;
@@ -157,34 +160,42 @@ public class HostedConfiguration {
         }
     }
 
-    public AbstractAnalysisResultsBuilder createStaticAnalysisResultsBuilder(BigBang bigbang, HostedUniverse universe) {
-        if (SubstrateOptions.parseOnce()) {
-            return new SubstrateStrengthenGraphs(bigbang, universe);
+    public AbstractAnalysisResultsBuilder createStaticAnalysisResultsBuilder(NativeImageStaticAnalysisEngine analysis, HostedUniverse universe) {
+        if (analysis instanceof BigBang) {
+            BigBang bb = (BigBang) analysis;
+            if (SubstrateOptions.parseOnce()) {
+                return new SubstrateStrengthenGraphs(bb, universe);
+            } else {
+                return new StaticAnalysisResultsBuilder(bb, universe);
+            }
         } else {
-            return new StaticAnalysisResultsBuilder(bigbang, universe);
+            // todo(d-kozak) what to apply from reachability?
+            // invokes with a single instantiated receiver type etc?
+            // Should custom results builder be created for this purpose?
+            throw VMError.shouldNotReachHere("Unsupported analysis type");
         }
     }
 
-    public void collectMonitorFieldInfo(BigBang bb, HostedUniverse hUniverse, Set<AnalysisType> immutableTypes) {
+    public void collectMonitorFieldInfo(StaticAnalysisEngine analysis, HostedUniverse hUniverse, Set<AnalysisType> immutableTypes) {
         /* First set the monitor field for types that always need it. */
-        getForceMonitorSlotTypes(bb).forEach(type -> setMonitorField(hUniverse, type));
+        getForceMonitorSlotTypes(analysis).forEach(type -> setMonitorField(hUniverse, type));
 
         /* Then decide what other types may need it. */
-        processedSynchronizedTypes(bb, hUniverse, immutableTypes);
+        processedSynchronizedTypes(analysis, hUniverse, immutableTypes);
     }
 
-    private static Set<AnalysisType> getForceMonitorSlotTypes(BigBang bb) {
+    private static Set<AnalysisType> getForceMonitorSlotTypes(StaticAnalysisEngine analysis) {
         Set<AnalysisType> forceMonitorTypes = new HashSet<>();
         for (Class<?> forceMonitorType : MultiThreadedMonitorSupport.FORCE_MONITOR_SLOT_TYPES) {
-            Optional<AnalysisType> aType = bb.getMetaAccess().optionalLookupJavaType(forceMonitorType);
+            Optional<AnalysisType> aType = analysis.getMetaAccess().optionalLookupJavaType(forceMonitorType);
             aType.ifPresent(forceMonitorTypes::add);
         }
         return forceMonitorTypes;
     }
 
     /** Process the types that the analysis found as needing synchronization. */
-    protected void processedSynchronizedTypes(BigBang bb, HostedUniverse hUniverse, Set<AnalysisType> immutableTypes) {
-        TypeState allSynchronizedTypeState = bb.getAllSynchronizedTypeState();
+    protected void processedSynchronizedTypes(StaticAnalysisEngine analysis, HostedUniverse hUniverse, Set<AnalysisType> immutableTypes) {
+        TypeState allSynchronizedTypeState = analysis.getAllSynchronizedTypeState();
         for (AnalysisType type : allSynchronizedTypeState.types()) {
             maybeSetMonitorField(hUniverse, immutableTypes, type);
         }

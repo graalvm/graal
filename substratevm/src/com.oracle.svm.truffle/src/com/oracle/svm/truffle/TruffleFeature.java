@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -626,7 +626,7 @@ public final class TruffleFeature implements com.oracle.svm.core.graal.GraalFeat
             access.requireAnalysisIteration();
         }
 
-        for (AnalysisType type : ((DuringAnalysisAccessImpl) access).getBigBang().getUniverse().getTypes()) {
+        for (AnalysisType type : ((DuringAnalysisAccessImpl) access).getStaticAnalysisEngine().getUniverse().getTypes()) {
             if (!access.isReachable(type.getJavaClass())) {
                 continue;
             }

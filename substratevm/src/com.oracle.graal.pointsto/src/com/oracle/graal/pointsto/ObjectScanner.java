@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -50,19 +50,19 @@ import jdk.vm.ci.meta.JavaKind;
 /**
  * Provides functionality for scanning constant objects.
  *
- * The scanning is done in parallel. The set of visited elements is a special datastructure whose
+ * The scanning is done in parallel. The set of visited elements is a special data structure whose
  * structure can be reused over multiple scanning iterations to save CPU resources. (For details
  * {@link ReusableSet}).
  */
 public abstract class ObjectScanner {
 
-    protected final BigBang bb;
+    protected final StaticAnalysisEngine analysis;
     private final ReusableSet scannedObjects;
     private final CompletionExecutor executor;
     private final Deque<WorklistEntry> worklist;
 
-    public ObjectScanner(BigBang bigbang, CompletionExecutor executor, ReusableSet scannedObjects) {
-        this.bb = bigbang;
+    public ObjectScanner(StaticAnalysisEngine analysis, CompletionExecutor executor, ReusableSet scannedObjects) {
+        this.analysis = analysis;
         if (executor != null) {
             this.executor = executor;
             this.worklist = null;
@@ -76,7 +76,7 @@ public abstract class ObjectScanner {
     public void scanBootImageHeapRoots(Comparator<AnalysisField> fieldComparator, Comparator<BytecodePosition> embeddedRootComparator) {
         // scan the original roots
         // the original roots are all the static fields, of object type, that were accessed
-        Collection<AnalysisField> fields = bb.getUniverse().getFields();
+        Collection<AnalysisField> fields = analysis.getUniverse().getFields();
         if (fieldComparator != null) {
             ArrayList<AnalysisField> fieldsList = new ArrayList<>(fields);
             fieldsList.sort(fieldComparator);
@@ -89,7 +89,7 @@ public abstract class ObjectScanner {
         }
 
         // scan the constant nodes
-        Map<JavaConstant, BytecodePosition> embeddedRoots = bb.getUniverse().getEmbeddedRoots();
+        Map<JavaConstant, BytecodePosition> embeddedRoots = analysis.getUniverse().getEmbeddedRoots();
         if (embeddedRootComparator != null) {
             embeddedRoots.entrySet().stream().sorted(Map.Entry.comparingByValue(embeddedRootComparator))
                             .forEach(entry -> execute(() -> scanEmbeddedRoot(entry.getKey(), entry.getValue())));
@@ -113,7 +113,7 @@ public abstract class ObjectScanner {
         try {
             scanConstant(root, new MethodScan(method, position));
         } catch (UnsupportedFeatureException ex) {
-            bb.getUnsupportedFeatures().addMessage(method.format("%H.%n(%p)"), method, ex.getMessage(), null, ex);
+            analysis.getUnsupportedFeatures().addMessage(method.format("%H.%n(%p)"), method, ex.getMessage(), null, ex);
         }
     }
 
@@ -157,17 +157,17 @@ public abstract class ObjectScanner {
     protected final void scanField(AnalysisField field, JavaConstant receiver, WorklistEntry previous) {
         ScanReason reason = new FieldScan(field);
         try {
-            JavaConstant fieldValue = bb.getConstantReflectionProvider().readFieldValue(field, receiver);
+            JavaConstant fieldValue = analysis.getConstantReflectionProvider().readFieldValue(field, receiver);
 
             if (fieldValue == null) {
                 StringBuilder backtrace = new StringBuilder();
                 buildObjectBacktrace(reason, previous, backtrace);
                 throw AnalysisError.shouldNotReachHere("Could not find field " + field.format("%H.%n") +
-                                (receiver == null ? "" : " on " + constantType(bb, receiver).toJavaName()) +
+                                (receiver == null ? "" : " on " + constantType(analysis, receiver).toJavaName()) +
                                 System.lineSeparator() + backtrace);
             }
 
-            if (fieldValue.getJavaKind() == JavaKind.Object && bb.getHostVM().isRelocatedPointer(constantAsObject(bb, fieldValue))) {
+            if (fieldValue.getJavaKind() == JavaKind.Object && analysis.getHostVM().isRelocatedPointer(constantAsObject(analysis, fieldValue))) {
                 forRelocatedPointerFieldValue(receiver, field, fieldValue);
             } else if (fieldValue.isNull()) {
                 forNullFieldValue(receiver, field);
@@ -203,8 +203,8 @@ public abstract class ObjectScanner {
      */
     protected final void scanArray(JavaConstant array, WorklistEntry previous) {
 
-        Object valueObj = constantAsObject(bb, array);
-        AnalysisType arrayType = analysisType(bb, valueObj);
+        Object valueObj = constantAsObject(analysis, array);
+        AnalysisType arrayType = analysisType(analysis, valueObj);
         assert valueObj instanceof Object[];
 
         ScanReason reason = new ArrayScan(arrayType);
@@ -215,9 +215,9 @@ public abstract class ObjectScanner {
                 if (e == null) {
                     forNullArrayElement(array, arrayType, idx);
                 } else {
-                    Object element = bb.getUniverse().replaceObject(e);
-                    JavaConstant elementConstant = bb.getSnippetReflectionProvider().forObject(element);
-                    AnalysisType elementType = analysisType(bb, element);
+                    Object element = analysis.getUniverse().replaceObject(e);
+                    JavaConstant elementConstant = analysis.getSnippetReflectionProvider().forObject(element);
+                    AnalysisType elementType = analysisType(analysis, element);
 
                     /* Scan the array element. */
                     scanConstant(elementConstant, reason, previous);
@@ -241,11 +241,11 @@ public abstract class ObjectScanner {
     }
 
     public final void scanConstant(JavaConstant value, ScanReason reason, WorklistEntry previous) {
-        Object valueObj = constantAsObject(bb, value);
+        Object valueObj = constantAsObject(analysis, value);
         if (valueObj == null || valueObj instanceof WordBase) {
             return;
         }
-        if (!bb.scanningPolicy().scanConstant(bb, value)) {
+        if (!analysis.scanningPolicy().scanConstant(analysis, value)) {
             return;
         }
         if (scannedObjects.putAndAcquire(valueObj) == null) {
@@ -266,7 +266,7 @@ public abstract class ObjectScanner {
     private void unsupportedFeature(String key, String message, ScanReason reason, WorklistEntry entry) {
         StringBuilder objectBacktrace = new StringBuilder();
         AnalysisMethod method = buildObjectBacktrace(reason, entry, objectBacktrace);
-        bb.getUnsupportedFeatures().addMessage(key, method, message, objectBacktrace.toString());
+        analysis.getUnsupportedFeatures().addMessage(key, method, message, objectBacktrace.toString());
     }
 
     private AnalysisMethod buildObjectBacktrace(ScanReason reason, WorklistEntry entry, StringBuilder objectBacktrace) {
@@ -308,7 +308,7 @@ public abstract class ObjectScanner {
     }
 
     private String asString(JavaConstant constant) {
-        Object obj = constantAsObject(bb, constant);
+        Object obj = constantAsObject(analysis, constant);
         return obj.getClass().getTypeName() + '@' + Integer.toHexString(System.identityHashCode(obj));
     }
 
@@ -318,10 +318,10 @@ public abstract class ObjectScanner {
      * element constants.
      */
     private void doScan(WorklistEntry entry) {
-        Object valueObj = constantAsObject(bb, entry.constant);
+        Object valueObj = constantAsObject(analysis, entry.constant);
 
         try {
-            AnalysisType type = analysisType(bb, valueObj);
+            AnalysisType type = analysisType(analysis, valueObj);
             type.registerAsReachable();
 
             if (type.isInstanceClass()) {
@@ -332,7 +332,7 @@ public abstract class ObjectScanner {
                         scanField(field, entry.constant, entry);
                     }
                 }
-            } else if (type.isArray() && bb.getProviders().getWordTypes().asKind(type.getComponentType()) == JavaKind.Object) {
+            } else if (type.isArray() && analysis.getProviders().getWordTypes().asKind(type.getComponentType()) == JavaKind.Object) {
                 /* Scan the array elements. */
                 scanArray(entry.constant, entry);
             }
@@ -359,16 +359,16 @@ public abstract class ObjectScanner {
         }
     }
 
-    protected static AnalysisType analysisType(BigBang bb, Object constant) {
-        return bb.getMetaAccess().lookupJavaType(constant.getClass());
+    protected static AnalysisType analysisType(StaticAnalysisEngine analysis, Object constant) {
+        return analysis.getMetaAccess().lookupJavaType(constant.getClass());
     }
 
-    protected static AnalysisType constantType(BigBang bb, JavaConstant constant) {
-        return bb.getMetaAccess().lookupJavaType(constantAsObject(bb, constant).getClass());
+    protected static AnalysisType constantType(StaticAnalysisEngine analysis, JavaConstant constant) {
+        return analysis.getMetaAccess().lookupJavaType(constantAsObject(analysis, constant).getClass());
     }
 
-    protected static Object constantAsObject(BigBang bb, JavaConstant constant) {
-        return bb.getSnippetReflectionProvider().asObject(Object.class, constant);
+    protected static Object constantAsObject(StaticAnalysisEngine analysis, JavaConstant constant) {
+        return analysis.getSnippetReflectionProvider().asObject(Object.class, constant);
     }
 
     static class WorklistEntry {

@@ -42,6 +42,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import com.oracle.svm.hosted.analysis.NativeImageStaticAnalysisEngine;
 import org.graalvm.compiler.api.replacements.Fold;
 import org.graalvm.compiler.api.runtime.GraalRuntime;
 import org.graalvm.compiler.core.common.spi.MetaAccessExtensionProvider;
@@ -79,7 +80,6 @@ import org.graalvm.nativeimage.ImageSingletons;
 import org.graalvm.nativeimage.hosted.Feature;
 import org.graalvm.nativeimage.hosted.RuntimeReflection;
 
-import com.oracle.graal.pointsto.BigBang;
 import com.oracle.graal.pointsto.flow.InvokeTypeFlow;
 import com.oracle.graal.pointsto.infrastructure.GraphProvider.Purpose;
 import com.oracle.graal.pointsto.meta.AnalysisField;
@@ -116,7 +116,6 @@ import com.oracle.svm.hosted.FeatureImpl.CompilationAccessImpl;
 import com.oracle.svm.hosted.FeatureImpl.DuringAnalysisAccessImpl;
 import com.oracle.svm.hosted.FeatureImpl.DuringSetupAccessImpl;
 import com.oracle.svm.hosted.NativeImageGenerator;
-import com.oracle.svm.hosted.analysis.Inflation;
 import com.oracle.svm.hosted.c.GraalAccess;
 import com.oracle.svm.hosted.classinitialization.ClassInitializationSupport;
 import com.oracle.svm.hosted.code.CompilationInfoSupport;
@@ -387,7 +386,7 @@ public final class GraalFeature implements Feature {
 
         FeatureHandler featureHandler = config.getFeatureHandler();
         NativeImageGenerator.registerGraphBuilderPlugins(featureHandler, runtimeConfig, hostedProviders, config.getMetaAccess(), config.getUniverse(), null, null, config.getNativeLibraries(),
-                        config.getImageClassLoader(), ParsingReason.JITCompilation, ((Inflation) config.getBigBang()).getAnnotationSubstitutionProcessor(),
+                        config.getImageClassLoader(), ParsingReason.JITCompilation, config.getStaticAnalysisEngine().getAnnotationSubstitutionProcessor(),
                         new SubstrateClassInitializationPlugin(config.getHostVM()), classInitializationSupport, ConfigurationValues.getTarget());
 
         NativeImageGenerator.registerReplacements(debug, featureHandler, runtimeConfig, runtimeConfig.getProviders(), runtimeConfig.getSnippetReflection(), false, true);
@@ -481,7 +480,7 @@ public final class GraalFeature implements Feature {
         worklist.addAll(methods.values());
 
         while (!worklist.isEmpty()) {
-            processMethod(worklist.removeFirst(), worklist, config.getBigBang());
+            processMethod(worklist.removeFirst(), worklist, config.getStaticAnalysisEngine());
         }
 
         SubstrateMethod[] methodsToCompileArr = new SubstrateMethod[methods.size()];
@@ -509,7 +508,7 @@ public final class GraalFeature implements Feature {
     }
 
     @SuppressWarnings("try")
-    private void processMethod(CallTreeNode node, Deque<CallTreeNode> worklist, BigBang bb) {
+    private void processMethod(CallTreeNode node, Deque<CallTreeNode> worklist, NativeImageStaticAnalysisEngine analysis) {
         AnalysisMethod method = node.implementationMethod;
         assert method.isImplementationInvoked();
 
@@ -523,7 +522,7 @@ public final class GraalFeature implements Feature {
 
             boolean parse = false;
 
-            DebugContext debug = bb.getDebug();
+            DebugContext debug = analysis.getDebug();
             StructuredGraph graph = method.buildGraph(debug, method, hostedProviders, Purpose.PREPARE_RUNTIME_COMPILATION);
             if (graph == null) {
                 if (!method.hasBytecodes()) {

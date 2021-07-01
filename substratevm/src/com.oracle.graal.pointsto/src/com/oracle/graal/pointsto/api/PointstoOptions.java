@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,6 +31,9 @@ import org.graalvm.compiler.options.Option;
 import org.graalvm.compiler.options.OptionKey;
 
 public class PointstoOptions {
+
+    @Option(help = "Use reachability analysis instead of points-to.")//
+    public static final OptionKey<Boolean> UseReachabilityAnalysis = new OptionKey<>(false);
 
     @Option(help = "Enable hybrid context for static methods, i.e. uses invocation site as context for static methods.")//
     public static final OptionKey<Boolean> HybridStaticContext = new OptionKey<>(false);

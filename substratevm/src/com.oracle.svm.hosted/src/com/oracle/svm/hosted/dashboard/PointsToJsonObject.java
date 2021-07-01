@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.oracle.svm.hosted.analysis.NativeImageStaticAnalysisEngine;
 import org.graalvm.graphio.GraphOutput;
 import org.graalvm.graphio.GraphStructure;
 import org.graalvm.nativeimage.hosted.Feature.OnAnalysisExitAccess;
@@ -488,7 +489,9 @@ class PointsToJsonObject extends JsonObject {
             return;
         }
         FeatureImpl.OnAnalysisExitAccessImpl config = (FeatureImpl.OnAnalysisExitAccessImpl) access;
-        BigBang bigbang = config.getBigBang();
+        NativeImageStaticAnalysisEngine analysis = config.getStaticAnalysisEngine();
+        VMError.guarantee(analysis instanceof BigBang, "Printing points-to statistics only make sense when point-to analysis is on.");
+        BigBang bigbang = (BigBang) analysis;
         serializeMethods(bigbang);
         connectFlowsToEnclosingMethods(bigbang);
         matchInputsAndUses();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -338,7 +338,7 @@ public class CompileQueue {
         this.runtimeConfig = runtimeConfigBuilder.getRuntimeConfig();
         this.deoptimizeAll = deoptimizeAll;
         this.dataCache = new ConcurrentHashMap<>();
-        this.executor = new CompletionExecutor(universe.getBigBang(), executorService, universe.getBigBang().getHeartbeatCallback());
+        this.executor = new CompletionExecutor(universe.getStaticAnalysis(), executorService, universe.getStaticAnalysis().getHeartbeatCallback());
         this.featureHandler = featureHandler;
         this.snippetReflection = snippetReflection;
 
@@ -356,7 +356,7 @@ public class CompileQueue {
     @SuppressWarnings("try")
     public void finish(DebugContext debug) {
         try {
-            String imageName = universe.getBigBang().getHostVM().getImageName();
+            String imageName = universe.getStaticAnalysis().getHostVM().getImageName();
             try (StopTimer t = new Timer(imageName, "(parse)").start()) {
                 parseAll();
             }
@@ -1021,7 +1021,7 @@ public class CompileQueue {
     }
 
     protected boolean containsStackValueNode(HostedMethod method) {
-        return universe.getBigBang().getHostVM().containsStackValueNode(method.wrapped);
+        return universe.getStaticAnalysis().getHostVM().containsStackValueNode(method.wrapped);
     }
 
     protected boolean canBeUsedForInlining(Invoke invoke) {

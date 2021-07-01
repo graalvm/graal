@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -36,8 +36,15 @@ import jdk.vm.ci.meta.JavaConstant;
 
 public class AnalysisObjectScanner extends ObjectScanner {
 
-    public AnalysisObjectScanner(BigBang bigbang, CompletionExecutor executor, ReusableSet scannedObjects) {
-        super(bigbang, executor, scannedObjects);
+    /**
+     * As opposed to the other subclasses of Object scanner, this one is very points-to specific,
+     * therefore it is keeping a reference to BigBang.
+     */
+    private final BigBang bb;
+
+    public AnalysisObjectScanner(BigBang bigBang, CompletionExecutor executor, ReusableSet scannedObjects) {
+        super(bigBang, executor, scannedObjects);
+        this.bb = bigBang;
     }
 
     @Override
