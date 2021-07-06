@@ -62,18 +62,20 @@ public class ReportUtils {
     /**
      * Print a report in the format: path/name_timeStamp.extension. The path is relative to the
      * working directory.
-     *
+     * 
      * @param description the description of the report
      * @param path the path (relative to the working directory if the argument represents a relative
      *            path)
      * @param name the name of the report
      * @param extension the extension of the report
      * @param reporter a consumer that writes to a PrintWriter
+     * @return path to the created report
      */
-    public static void report(String description, String path, String name, String extension, Consumer<PrintWriter> reporter) {
+    public static String report(String description, String path, String name, String extension, Consumer<PrintWriter> reporter) {
         String fileName = timeStampedFileName(name, extension);
         Path reportDir = Paths.get(path);
         reportImpl(description, reportDir, fileName, reporter);
+        return fileName;
     }
 
     public static String timeStampedFileName(String name, String extension) {
