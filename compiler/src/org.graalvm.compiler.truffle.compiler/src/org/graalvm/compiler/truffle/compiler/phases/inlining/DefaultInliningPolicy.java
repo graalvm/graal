@@ -111,11 +111,11 @@ final class DefaultInliningPolicy implements InliningPolicy {
 
     private void inline(CallTree tree) {
         final int inliningBudget = options.get(PolyglotCompilerOptions.InliningInliningBudget);
-        final String excludedMethod = options.get(PolyglotCompilerOptions.ExcludeInlining);
+        final String[] excludedMethods = options.get(PolyglotCompilerOptions.ExcludeInlining).split(",");
         final PriorityQueue<CallNode> inlineQueue = getQueue(tree, CallNode.State.Expanded);
         CallNode candidate;
         while ((candidate = inlineQueue.poll()) != null) {
-            if (candidate.isExcluded(excludedMethod)) {
+            if (isExcludedMethod(candidate, excludedMethods)) {
                 continue;
             }
             if (candidate.isTrivial()) {
@@ -130,6 +130,18 @@ final class DefaultInliningPolicy implements InliningPolicy {
                 updateQueue(candidate, inlineQueue, CallNode.State.Expanded);
             }
         }
+    }
+
+    private boolean isExcludedMethod(CallNode candidate, String[] excludedMethods) {
+        for (String method : excludedMethods) {
+            if (method.isEmpty()) {
+                continue;
+            }
+            if (candidate.getTruffleAST().getName().contains(method)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void expand(CallTree tree) {
