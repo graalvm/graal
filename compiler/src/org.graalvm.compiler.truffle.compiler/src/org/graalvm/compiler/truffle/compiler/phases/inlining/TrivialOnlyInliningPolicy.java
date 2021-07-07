@@ -24,14 +24,38 @@
  */
 package org.graalvm.compiler.truffle.compiler.phases.inlining;
 
+import org.graalvm.compiler.truffle.options.PolyglotCompilerOptions;
+import org.graalvm.options.OptionValues;
+
 final class TrivialOnlyInliningPolicy implements InliningPolicy {
+    private final OptionValues options;
+    TrivialOnlyInliningPolicy(OptionValues options) {
+        this.options = options;
+    }
+
     @Override
     public void run(CallTree tree) {
         for (CallNode child : tree.getRoot().getChildren()) {
+            final String[] excludedMethods = options.get(PolyglotCompilerOptions.ExcludeInlining).split(",");
+            if (isExcludedMethod(child, excludedMethods)) {
+                continue;
+            }
             if (child.isTrivial()) {
                 child.expand();
                 child.inline();
             }
         }
+    }
+
+    private boolean isExcludedMethod(CallNode candidate, String[] excludedMethods) {
+        for (String method : excludedMethods) {
+            if (method.isEmpty()) {
+                continue;
+            }
+            if (candidate.getTruffleAST().getName().contains(method)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
