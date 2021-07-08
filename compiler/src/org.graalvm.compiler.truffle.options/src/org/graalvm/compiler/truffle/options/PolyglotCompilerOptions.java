@@ -391,7 +391,7 @@ public final class PolyglotCompilerOptions {
     @Option(help = "Maximum depth for recursive inlining.", category = OptionCategory.EXPERT)
     public static final OptionKey<Integer> InliningRecursionDepth = new OptionKey<>(2);
 
-    @Option(help = "Exclude from being inlined for ','-separated list of methods.", category = OptionCategory.INTERNAL)
+    @Option(help = "A ','-separated list of method names that should be never be inlined.", category = OptionCategory.INTERNAL)
     public static final OptionKey<String> ExcludeInlining = new OptionKey<>("", OptionType.defaultType(String.class));
 
     // Splitting
