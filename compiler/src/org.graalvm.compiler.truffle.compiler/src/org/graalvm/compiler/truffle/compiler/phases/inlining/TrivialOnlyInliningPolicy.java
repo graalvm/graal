@@ -35,8 +35,8 @@ final class TrivialOnlyInliningPolicy implements InliningPolicy {
 
     @Override
     public void run(CallTree tree) {
+        final String[] excludedMethods = options.get(PolyglotCompilerOptions.ExcludeInlining).split(",");
         for (CallNode child : tree.getRoot().getChildren()) {
-            final String[] excludedMethods = options.get(PolyglotCompilerOptions.ExcludeInlining).split(",");
             if (isExcludedMethod(child, excludedMethods)) {
                 continue;
             }
