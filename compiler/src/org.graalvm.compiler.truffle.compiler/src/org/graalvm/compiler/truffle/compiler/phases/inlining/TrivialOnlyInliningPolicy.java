@@ -37,7 +37,7 @@ final class TrivialOnlyInliningPolicy implements InliningPolicy {
     public void run(CallTree tree) {
         final String[] excludedMethods = options.get(PolyglotCompilerOptions.ExcludeInlining).split(",");
         for (CallNode child : tree.getRoot().getChildren()) {
-            if (isExcludedMethod(child, excludedMethods)) {
+            if (DefaultInliningPolicy.isExcludedMethod(child, excludedMethods)) {
                 continue;
             }
             if (child.isTrivial()) {
@@ -45,17 +45,5 @@ final class TrivialOnlyInliningPolicy implements InliningPolicy {
                 child.inline();
             }
         }
-    }
-
-    private boolean isExcludedMethod(CallNode candidate, String[] excludedMethods) {
-        for (String method : excludedMethods) {
-            if (method.isEmpty()) {
-                continue;
-            }
-            if (candidate.getTruffleAST().getName().contains(method)) {
-                return true;
-            }
-        }
-        return false;
     }
 }

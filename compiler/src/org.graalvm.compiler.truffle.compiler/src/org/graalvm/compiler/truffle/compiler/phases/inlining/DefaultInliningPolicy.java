@@ -132,12 +132,16 @@ final class DefaultInliningPolicy implements InliningPolicy {
         }
     }
 
-    private static boolean isExcludedMethod(CallNode candidate, String[] excludedMethods) {
+    static boolean isExcludedMethod(CallNode candidate, String[] excludedMethods) {
+        // Removes split information from name
+        //   e.g. "Object#foo <split-1234>" => "Object#foo"
+        final String candidateWithoutSplitInfo = candidate.getTruffleAST().getName()
+                .replaceAll(" \\<[^()]*\\>", "");
         for (String method : excludedMethods) {
             if (method.isEmpty()) {
                 continue;
             }
-            if (candidate.getTruffleAST().getName().contains(method)) {
+            if (candidateWithoutSplitInfo.equals(method)) {
                 return true;
             }
         }
