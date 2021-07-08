@@ -40,6 +40,7 @@ import org.junit.Test;
 
 public class ExcludeInliningTest {
     private static final String COMPILATION_ROOT_NAME = "main";
+    private static final String METHOD_EXCLUDED_FROM_INLINING = "should-not-be-inlined";
 
     @Test
     public void testNoInlineForExcludedMethods() throws Exception {
@@ -48,7 +49,7 @@ public class ExcludeInliningTest {
                 option("engine.CompileImmediately", "true").//
                 option("engine.BackgroundCompilation", "false").//
                 option("engine.CompileOnly", COMPILATION_ROOT_NAME).//
-                option("engine.ExcludeInlining", "should-not-be-inlined").//
+                option("engine.ExcludeInlining", METHOD_EXCLUDED_FROM_INLINING).//
                 build()) {
             c.eval(ExcludeInliningTest.ExcludeInliningTestLanguage.ID, "");
             c.eval(ExcludeInliningTest.ExcludeInliningTestLanguage.ID, "");
@@ -78,7 +79,7 @@ public class ExcludeInliningTest {
 
                 @Override
                 public String getName() {
-                    return "should-not-be-inlined";
+                    return METHOD_EXCLUDED_FROM_INLINING;
                 }
             });
             return runtime.createCallTarget(new RootNode(this) {
