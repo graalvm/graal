@@ -132,7 +132,7 @@ final class DefaultInliningPolicy implements InliningPolicy {
         }
     }
 
-    private boolean isExcludedMethod(CallNode candidate, String[] excludedMethods) {
+    private static boolean isExcludedMethod(CallNode candidate, String[] excludedMethods) {
         for (String method : excludedMethods) {
             if (method.isEmpty()) {
                 continue;
