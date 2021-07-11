@@ -45,7 +45,7 @@ public class StackTraceTests {
     public void testGetClassContext() {
         final Subclass sm = new Subclass();
         final Class<?>[] classes = sm.getClassContext();
-        assertSame(StackTraceTests.class, classes[0]);
-        assertTrue(classes.length > 1);
+        assertSame(StackTraceTests.class, classes[1]);
+        assertTrue(classes.length > 2);
     }
 }
