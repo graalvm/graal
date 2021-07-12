@@ -136,7 +136,7 @@ final class DefaultInliningPolicy implements InliningPolicy {
         // Removes split information from name
         //   e.g. "Object#foo <split-1234>" => "Object#foo"
         final String candidateWithoutSplitInfo = candidate.getTruffleAST().getName()
-                .replaceAll(" \\<[^()]*\\>", "");
+                .replaceAll(" <split-[0-9|a-f]*>$", "");
         for (String method : excludedMethods) {
             if (method.isEmpty()) {
                 continue;
