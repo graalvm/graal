@@ -29,6 +29,7 @@ import org.graalvm.options.OptionValues;
 
 final class TrivialOnlyInliningPolicy implements InliningPolicy {
     private final OptionValues options;
+
     TrivialOnlyInliningPolicy(OptionValues options) {
         this.options = options;
     }

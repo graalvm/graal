@@ -45,12 +45,12 @@ public class ExcludeInliningTest {
     @Test
     public void testNoInlineForExcludedMethods() throws Exception {
         try (Context c = Context.newBuilder().allowExperimentalOptions(true).//
-                option("engine.CompilationFailureAction", "Throw").//
-                option("engine.CompileImmediately", "true").//
-                option("engine.BackgroundCompilation", "false").//
-                option("engine.CompileOnly", COMPILATION_ROOT_NAME).//
-                option("engine.ExcludeInlining", METHOD_EXCLUDED_FROM_INLINING).//
-                build()) {
+                    option("engine.CompilationFailureAction", "Throw").//
+                    option("engine.CompileImmediately", "true").//
+                    option("engine.BackgroundCompilation", "false").//
+                    option("engine.CompileOnly", COMPILATION_ROOT_NAME).//
+                    option("engine.ExcludeInlining", METHOD_EXCLUDED_FROM_INLINING).//
+                    build()) {
             c.eval(ExcludeInliningTest.ExcludeInliningTestLanguage.ID, "");
             c.eval(ExcludeInliningTest.ExcludeInliningTestLanguage.ID, "");
         }
