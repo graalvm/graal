@@ -378,7 +378,14 @@ public final class JNIFunctions {
                                     MetaUtil.internalNameToJava(l.getDeclaringClassName(), true, false) +
                                     "." + l.getName() + l.getDescriptor() + ")";
                 }
-                throw new NoSuchMethodError(message);
+                /*
+                 * It happens that libraries register arbitrary Java native methods from their
+                 * native code. If during analysis, we didn't reach some of those JNI methods (see
+                 * com.oracle.svm.jni.hosted.JNINativeCallWrapperSubstitutionProcessor.lookup and
+                 * com.oracle.svm.jni.access.JNIAccessFeature.duringAnalysis) we shouldn't fail:
+                 * those native method can never be invoked.
+                 */
+                System.err.println("WARNING: NoSuchMethod " + message);
             }
 
             p = p.add(SizeOf.get(JNINativeMethod.class));
