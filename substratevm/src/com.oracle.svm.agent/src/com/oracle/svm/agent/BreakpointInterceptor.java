@@ -942,6 +942,37 @@ final class BreakpointInterceptor {
         return true;
     }
 
+    private static boolean customTargetConstructorSerialization(JNIEnvironment jni, @SuppressWarnings("unused") Breakpoint bp, InterceptedState state) {
+        JNIObjectHandle serializeTargetClass = getObjectArgument(1);
+        String serializeTargetClassName = getClassNameOrNull(jni, serializeTargetClass);
+
+        // Skip Lambda class serialization.
+        if (serializeTargetClassName.contains("$$Lambda$")) {
+            return true;
+        }
+
+        JNIObjectHandle customConstructorObj = getObjectArgument(2);
+        JNIObjectHandle customConstructorClass = jniFunctions().getGetObjectClass().invoke(jni, customConstructorObj);
+        JNIMethodId getDeclaringClassNameMethodID = agent.handles().getJavaLangReflectConstructorDeclaringClassName(jni, customConstructorClass);
+        JNIObjectHandle declaredClassNameObj = callObjectMethod(jni, customConstructorObj, getDeclaringClassNameMethodID);
+        String customConstructorClassName = fromJniString(jni, declaredClassNameObj);
+
+        if (tracer != null) {
+            tracer.traceCall("serialization",
+                            "ObjectStreamClass.<init>",
+                            null,
+                            null,
+                            null,
+                            true,
+                            state.getFullStackTraceOrNull(),
+                            /*- String serializationTargetClass, String customTargetConstructorClass */
+                            serializeTargetClassName, customConstructorClassName);
+
+            guarantee(!testException(jni));
+        }
+        return true;
+    }
+
     @CEntryPoint
     @CEntryPointOptions(prologue = AgentIsolate.Prologue.class)
     private static void onBreakpoint(@SuppressWarnings("unused") JvmtiEnv jvmti, JNIEnvironment jni,
@@ -1235,6 +1266,9 @@ final class BreakpointInterceptor {
                                     "(Ljava/lang/ClassLoader;[Ljava/lang/Class;Ljava/lang/reflect/InvocationHandler;)Ljava/lang/Object;", BreakpointInterceptor::newProxyInstance),
 
                     brk("java/io/ObjectStreamClass", "<init>", "(Ljava/lang/Class;)V", BreakpointInterceptor::objectStreamClassConstructor),
+                    brk("jdk/internal/reflect/ReflectionFactory",
+                                    "newConstructorForSerialization",
+                                    "(Ljava/lang/Class;Ljava/lang/reflect/Constructor;)Ljava/lang/reflect/Constructor;", BreakpointInterceptor::customTargetConstructorSerialization),
                     optionalBrk("java/util/ResourceBundle",
                                     "getBundleImpl",
                                     "(Ljava/lang/String;Ljava/util/Locale;Ljava/lang/ClassLoader;Ljava/util/ResourceBundle$Control;)Ljava/util/ResourceBundle;",
