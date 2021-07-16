@@ -34,11 +34,16 @@ package com.oracle.objectfile.debugentry;
 
 public class Range {
     private static final String CLASS_DELIMITER = ".";
+    private final Range caller;
     private final MethodEntry methodEntry;
+    private final String fullMethodName;
     private final String fullMethodNameWithParams;
     private final int lo;
     private final int hi;
     private final int line;
+    private final boolean isInlined;
+    private final boolean withChildren;
+    private boolean withInlinedChildren;
     /*
      * This is null for a primary range.
      */
@@ -48,24 +53,29 @@ public class Range {
      * Create a primary range.
      */
     public Range(StringTable stringTable, MethodEntry methodEntry, int lo, int hi, int line) {
-        this(stringTable, methodEntry, lo, hi, line, null);
+        this(stringTable, methodEntry, lo, hi, line, null, false, false, null);
     }
 
     /*
      * Create a primary or secondary range.
      */
-    public Range(StringTable stringTable, MethodEntry methodEntry, int lo, int hi, int line, Range primary) {
+    public Range(StringTable stringTable, MethodEntry methodEntry, int lo, int hi, int line, Range primary, boolean isInline, boolean withChildren, Range caller) {
         assert methodEntry != null;
         if (methodEntry.fileEntry != null) {
             stringTable.uniqueDebugString(methodEntry.fileEntry.getFileName());
             stringTable.uniqueDebugString(methodEntry.fileEntry.getPathName());
         }
         this.methodEntry = methodEntry;
+        this.fullMethodName = isInline ? stringTable.uniqueDebugString(constructClassAndMethodName()) : stringTable.uniqueString(constructClassAndMethodName());
         this.fullMethodNameWithParams = stringTable.uniqueString(constructClassAndMethodNameWithParams());
         this.lo = lo;
         this.hi = hi;
         this.line = line;
+        this.isInlined = isInline;
         this.primary = primary;
+        this.withChildren = withChildren;
+        this.withInlinedChildren = false;
+        this.caller = caller;
     }
 
     public boolean contains(Range other) {
@@ -105,7 +115,7 @@ public class Range {
     }
 
     public String getFullMethodName() {
-        return constructClassAndMethodName();
+        return fullMethodName;
     }
 
     public String getFullMethodNameWithParams() {
@@ -166,5 +176,25 @@ public class Range {
 
     public MethodEntry getMethodEntry() {
         return methodEntry;
+    }
+
+    public boolean isInlined() {
+        return isInlined;
+    }
+
+    public boolean withChildren() {
+        return withChildren;
+    }
+
+    public boolean withInlinedChildren() {
+        return withInlinedChildren;
+    }
+
+    public boolean setWithInlinedChildren(boolean withInlinedChildren) {
+        return this.withInlinedChildren = withInlinedChildren;
+    }
+
+    public Range getCaller() {
+        return caller;
     }
 }
