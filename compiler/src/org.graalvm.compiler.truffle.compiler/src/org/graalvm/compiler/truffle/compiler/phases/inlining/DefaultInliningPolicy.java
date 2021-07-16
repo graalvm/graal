@@ -111,9 +111,13 @@ final class DefaultInliningPolicy implements InliningPolicy {
 
     private void inline(CallTree tree) {
         final int inliningBudget = options.get(PolyglotCompilerOptions.InliningInliningBudget);
+        final String[] excludedMethods = options.get(PolyglotCompilerOptions.ExcludeInlining).split(",");
         final PriorityQueue<CallNode> inlineQueue = getQueue(tree, CallNode.State.Expanded);
         CallNode candidate;
         while ((candidate = inlineQueue.poll()) != null) {
+            if (isExcludedMethod(candidate, excludedMethods)) {
+                continue;
+            }
             if (candidate.isTrivial()) {
                 candidate.inline();
                 continue;
@@ -126,6 +130,21 @@ final class DefaultInliningPolicy implements InliningPolicy {
                 updateQueue(candidate, inlineQueue, CallNode.State.Expanded);
             }
         }
+    }
+
+    static boolean isExcludedMethod(CallNode candidate, String[] excludedMethods) {
+        // Removes split information from name
+        // e.g. "Object#foo <split-1234>" => "Object#foo"
+        final String candidateWithoutSplitInfo = candidate.getTruffleAST().getName().replaceAll(" <split-[0-9|a-f]*>$", "");
+        for (String method : excludedMethods) {
+            if (method.isEmpty()) {
+                continue;
+            }
+            if (candidateWithoutSplitInfo.equals(method)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void expand(CallTree tree) {
