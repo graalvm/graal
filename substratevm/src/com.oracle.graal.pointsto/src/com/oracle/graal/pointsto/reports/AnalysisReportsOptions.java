@@ -36,7 +36,7 @@ public class AnalysisReportsOptions {
     public static final OptionKey<String> AnalysisStatisticsFile = new OptionKey<>(null);
 
     @Option(help = "Print analysis call tree, a breadth-first tree reduction of the call graph.")//
-    public static final OptionKey<Boolean> PrintAnalysisCallTree = new OptionKey<>(false);
+    public static final OptionKey<String> PrintAnalysisCallTree = new OptionKey<>(null);
 
     @Option(help = "Print image object hierarchy.")//
     public static final OptionKey<Boolean> PrintImageObjectTree = new OptionKey<>(false);

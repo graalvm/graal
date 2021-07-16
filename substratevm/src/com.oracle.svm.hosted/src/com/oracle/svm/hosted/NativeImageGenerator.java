@@ -776,8 +776,8 @@ public class NativeImageGenerator {
                     StatisticsPrinter.print(bigbang, SubstrateOptions.reportsPath(), ReportUtils.extractImageName(imageName));
                 }
 
-                if (AnalysisReportsOptions.PrintAnalysisCallTree.getValue(options)) {
-                    CallTreePrinter.print(bigbang, SubstrateOptions.reportsPath(), ReportUtils.extractImageName(imageName));
+                if (AnalysisReportsOptions.PrintAnalysisCallTree.hasBeenSet(options)) {
+                    CallTreePrinter.print(bigbang, AnalysisReportsOptions.PrintAnalysisCallTree.getValue(options), SubstrateOptions.reportsPath(), ReportUtils.extractImageName(imageName));
                 }
 
                 if (AnalysisReportsOptions.PrintImageObjectTree.getValue(options)) {
