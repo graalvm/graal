@@ -44,7 +44,7 @@ import com.oracle.truffle.llvm.runtime.types.Type;
 
 public final class LLVMGlobal extends LLVMSymbol {
 
-    private final LLVMSourceSymbol sourceSymbol;
+    private LLVMSourceSymbol sourceSymbol;
     private final boolean readOnly;
     public static final LLVMGlobal[] EMPTY = {};
 
@@ -76,6 +76,11 @@ public final class LLVMGlobal extends LLVMSymbol {
 
         this.interopTypeCached = false;
         this.interopType = null;
+    }
+
+    public void setSourceSymbol(LLVMSourceSymbol sourceSymbol) {
+        assert !interopTypeCached;
+        this.sourceSymbol = sourceSymbol;
     }
 
     @Override
