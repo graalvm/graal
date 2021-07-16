@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.graalvm.collections.Pair;
 import org.graalvm.compiler.phases.common.LazyValue;
 
 import com.oracle.svm.configure.config.ConfigurationMemberKind;
@@ -235,13 +236,21 @@ class ReflectionProcessor extends AbstractProcessor {
             }
 
             case "getBundleImplJDK8OrEarlier": {
-                expectSize(args, 4);
-                resourceConfiguration.addBundle((String) args.get(0));
+                expectSize(args, 5);
+                String baseName = (String) args.get(0);
+                String localeTag = (String) args.get(1);
+                @SuppressWarnings("unchecked")
+                List<Pair<String, String>> bundleInfo = (List<Pair<String, String>>) args.get(4);
+                resourceConfiguration.addBundle(bundleInfo, baseName, localeTag);
                 break;
             }
             case "getBundleImplJDK11OrLater": {
-                expectSize(args, 5);
-                resourceConfiguration.addBundle((String) args.get(2));
+                expectSize(args, 6);
+                String baseName = (String) args.get(2);
+                String localeTag = (String) args.get(3);
+                @SuppressWarnings("unchecked")
+                List<Pair<String, String>> bundleInfo = (List<Pair<String, String>>) args.get(5);
+                resourceConfiguration.addBundle(bundleInfo, baseName, localeTag);
                 break;
             }
             default:

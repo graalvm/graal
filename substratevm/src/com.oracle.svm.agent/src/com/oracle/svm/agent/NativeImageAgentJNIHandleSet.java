@@ -67,6 +67,10 @@ public class NativeImageAgentJNIHandleSet extends JNIHandleSet {
     private JNIFieldId javaIOObjectStreamClassClassDataSlotDesc;
     private JNIFieldId javaIOObjectStreamClassClassDataSlotHasData;
 
+    final JNIMethodId javaUtilLocaleToLanguageTag;
+    final JNIFieldId javaUtilResourceBundleParentField;
+    final JNIMethodId javaUtilResourceBundleGetLocale;
+
     NativeImageAgentJNIHandleSet(JNIEnvironment env) {
         super(env);
         javaLangClass = newClassGlobalRef(env, "java/lang/Class");
@@ -95,6 +99,12 @@ public class NativeImageAgentJNIHandleSet extends JNIHandleSet {
         javaLangIllegalAccessException = newClassGlobalRef(env, "java/lang/IllegalAccessException");
         javaLangInvokeWrongMethodTypeException = newClassGlobalRef(env, "java/lang/invoke/WrongMethodTypeException");
         javaLangIllegalArgumentException = newClassGlobalRef(env, "java/lang/IllegalArgumentException");
+
+        JNIObjectHandle javaUtilLocale = findClass(env, "java/util/Locale");
+        javaUtilLocaleToLanguageTag = getMethodId(env, javaUtilLocale, "toLanguageTag", "()Ljava/lang/String;", false);
+        JNIObjectHandle javaUtilResourceBundle = findClass(env, "java/util/ResourceBundle");
+        javaUtilResourceBundleParentField = getFieldId(env, javaUtilResourceBundle, "parent", "Ljava/util/ResourceBundle;", false);
+        javaUtilResourceBundleGetLocale = getMethodId(env, javaUtilResourceBundle, "getLocale", "()Ljava/util/Locale;", false);
     }
 
     JNIMethodId getJavaLangInvokeMethodTypeReturnType(JNIEnvironment env) {
