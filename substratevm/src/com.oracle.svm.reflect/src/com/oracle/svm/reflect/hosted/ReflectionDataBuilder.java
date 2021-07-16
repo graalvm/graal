@@ -33,8 +33,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -51,8 +53,11 @@ import com.oracle.svm.core.util.UserError;
 import com.oracle.svm.core.util.VMError;
 import com.oracle.svm.hosted.FeatureImpl.DuringAnalysisAccessImpl;
 import com.oracle.svm.hosted.FeatureImpl.FeatureAccessImpl;
+import com.oracle.svm.hosted.annotation.AnnotationSubstitutionType;
 import com.oracle.svm.hosted.substitute.SubstitutionReflectivityFilter;
 import com.oracle.svm.util.ReflectionUtil;
+
+import jdk.vm.ci.meta.ResolvedJavaType;
 
 public class ReflectionDataBuilder implements RuntimeReflectionSupport {
 
@@ -71,6 +76,10 @@ public class ReflectionDataBuilder implements RuntimeReflectionSupport {
 
     /* Keep track of classes already processed for reflection. */
     private final Set<Class<?>> processedClasses = new HashSet<>();
+
+    /* Keep track of annotation interface members to include in proxy classes */
+    private final Map<Class<?>, Method[]> annotationMethods = new HashMap<>();
+    private final Map<Class<?>, Field[]> annotationFields = new HashMap<>();
 
     private final ReflectionDataAccessors accessors;
 
@@ -187,6 +196,29 @@ public class ReflectionDataBuilder implements RuntimeReflectionSupport {
                     processedClasses.add(originalClass);
                     access.requireAnalysisIteration();
                 }
+                if (type.getWrappedWithoutResolve() instanceof AnnotationSubstitutionType) {
+                    /*
+                     * Proxy classes for annotations present the annotation default methods and
+                     * fields as their own.
+                     */
+                    ResolvedJavaType annotationType = ((AnnotationSubstitutionType) type.getWrappedWithoutResolve()).getAnnotationInterfaceType();
+                    Class<?> annotationClass = access.getUniverse().lookup(annotationType).getJavaClass();
+                    if (processedClasses.contains(annotationClass)) {
+                        try {
+                            for (Field field : annotationFields.getOrDefault(annotationClass, new Field[0])) {
+                                register(false, originalClass.getDeclaredField(field.getName()));
+                            }
+                            for (Method method : annotationMethods.getOrDefault(annotationClass, new Method[0])) {
+                                register(originalClass.getDeclaredMethod(method.getName(), method.getParameterTypes()));
+                            }
+                        } catch (NoSuchFieldException | NoSuchMethodException e) {
+                            /*
+                             * The annotation member is not present in the proxy class so we don't
+                             * add it.
+                             */
+                        }
+                    }
+                }
             }
         }
     }
@@ -273,6 +305,17 @@ public class ReflectionDataBuilder implements RuntimeReflectionSupport {
                             buildRecordComponents(clazz, access));
         }
         hub.setReflectionData(reflectionData);
+
+        if (type.isAnnotation()) {
+            /*
+             * Cache the annotation members to allow proxy classes seen later to include those in
+             * their own reflection data
+             */
+            annotationFields.put(clazz, filterFields(accessors.getDeclaredFields(originalReflectionData), reflectionFields, access));
+            annotationMethods.put(clazz, filterMethods(accessors.getDeclaredMethods(originalReflectionData), reflectionMethods, access));
+            processedClasses.add(clazz);
+            access.requireAnalysisIteration(); /* Need the proxy class to see the added members */
+        }
     }
 
     private Object[] buildRecordComponents(Class<?> clazz, DuringAnalysisAccessImpl access) {

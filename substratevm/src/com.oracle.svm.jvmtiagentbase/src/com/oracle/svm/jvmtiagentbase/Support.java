@@ -184,8 +184,9 @@ public final class Support {
         return handlePtr.read();
     }
 
-    public static String getClassNameOr(JNIEnvironment env, JNIObjectHandle clazz, String forNullHandle, String forNullNameOrException) {
-        if (clazz.notEqual(nullHandle())) {
+    public static String getClassNameOr(JNIEnvironment env, JNIObjectHandle rawClazz, String forNullHandle, String forNullNameOrException) {
+        if (rawClazz.notEqual(nullHandle())) {
+            JNIObjectHandle clazz = Support.maybeUnwrapProxy(env, rawClazz);
             JNIObjectHandle clazzName = callObjectMethod(env, clazz, JvmtiAgentBase.singleton().handles().javaLangClassGetName);
             String result = Support.fromJniString(env, clazzName);
             if (result == null || clearException(env)) {
@@ -194,6 +195,34 @@ public final class Support {
             return result;
         }
         return forNullHandle;
+    }
+
+    private static JNIObjectHandle maybeUnwrapProxy(JNIEnvironment env, JNIObjectHandle clazz) {
+        boolean isProxy = Support.callStaticBooleanMethodL(env, JvmtiAgentBase.singleton().handles().javaLangReflectProxy, JvmtiAgentBase.singleton().handles().javaLangReflectProxyIsProxyClass,
+                        clazz);
+        if (clearException(env) || !isProxy) {
+            return clazz;
+        }
+
+        JNIObjectHandle interfaces = Support.callObjectMethod(env, clazz, JvmtiAgentBase.singleton().handles().javaLangClassGetInterfaces);
+        if (clearException(env) || interfaces.equal(nullHandle())) {
+            return clazz;
+        }
+
+        int interfacesLength = Support.jniFunctions().getGetArrayLength().invoke(env, interfaces);
+        System.out.println("Is 3 ok?");
+        guarantee(!clearException(env));
+        System.out.println("3 is ok");
+        if (interfacesLength != 1) {
+            return clazz;
+        }
+
+        JNIObjectHandle iface = Support.jniFunctions().getGetObjectArrayElement().invoke(env, interfaces, 0);
+        System.out.println("Is 4 ok?");
+        guarantee(!clearException(env) && iface.notEqual(nullHandle()));
+        System.out.println("4 is ok");
+
+        return iface;
     }
 
     public static String getClassNameOrNull(JNIEnvironment env, JNIObjectHandle clazz) {
@@ -365,6 +394,12 @@ public final class Support {
         args.addressOf(0).setObject(l0);
         args.addressOf(1).setObject(l1);
         jniFunctions().getCallStaticVoidMethodA().invoke(env, clazz, method, args);
+    }
+
+    public static boolean callStaticBooleanMethodL(JNIEnvironment env, JNIObjectHandle clazz, JNIMethodId method, JNIObjectHandle l0) {
+        JNIValue args = StackValue.get(1, JNIValue.class);
+        args.addressOf(0).setObject(l0);
+        return jniFunctions().getCallStaticBooleanMethodA().invoke(env, clazz, method, args);
     }
 
     public static boolean callBooleanMethod(JNIEnvironment env, JNIObjectHandle obj, JNIMethodId method) {
