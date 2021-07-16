@@ -124,10 +124,10 @@ def is_musl_supported():
     return False
 
 
-class GraalVMConfig(collections.namedtuple('GraalVMConfig', 'primary_suite_dir, dynamicimports, disable_libpolyglot, force_bash_launchers, skip_libraries, exclude_components, native_images')):
+class GraalVMConfig(collections.namedtuple('GraalVMConfig', 'primary_suite_dir, dynamicimports, disable_libpolyglot, force_bash_launchers, skip_libraries, components, exclude_components, native_images')):
     @classmethod
     def build(cls, primary_suite_dir=None, dynamicimports=None, disable_libpolyglot=True, force_bash_launchers=True, skip_libraries=True,
-              exclude_components=None, native_images=None):
+              components=None, exclude_components=None, native_images=None):
         dynamicimports = list(dynamicimports or [])
         for x, _ in mx.get_dynamic_imports():
             if x not in dynamicimports:
@@ -135,7 +135,7 @@ class GraalVMConfig(collections.namedtuple('GraalVMConfig', 'primary_suite_dir, 
         new_config = cls(primary_suite_dir, tuple(dynamicimports), disable_libpolyglot,
                          force_bash_launchers if isinstance(force_bash_launchers, bool) else tuple(force_bash_launchers),
                          skip_libraries if isinstance(skip_libraries, bool) else tuple(skip_libraries),
-                         tuple(exclude_components or ()), tuple(native_images or ()))
+                         tuple(components or ()), tuple(exclude_components or ()), tuple(native_images or ()))
         return new_config
 
     def mx_args(self):
@@ -154,6 +154,8 @@ class GraalVMConfig(collections.namedtuple('GraalVMConfig', 'primary_suite_dir, 
                 args += ['--skip-libraries=true']
             else:
                 args += ['--skip-libraries=' + ','.join(self.skip_libraries)]
+        if self.components:
+            args += ['--components=' + ','.join(self.components)]
         if self.exclude_components:
             args += ['--exclude-components=' + ','.join(self.exclude_components)]
         if self.native_images:
@@ -1058,6 +1060,8 @@ def debuginfotest(args, config=None):
     parsed = parser.parse_args(masked_args)
     output_path = unmask(parsed.output_path)[0]
     build_only = parsed.build_only
+    if config is None:
+        config = GraalVMConfig.build(native_images=['native-image'], components=['Native Image'])
     native_image_context_run(
         lambda native_image, a:
             _debuginfotest(native_image, output_path, build_only, a), unmask(parsed.image_args),
