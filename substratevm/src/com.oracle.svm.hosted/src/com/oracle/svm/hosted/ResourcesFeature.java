@@ -324,14 +324,15 @@ public final class ResourcesFeature implements Feature {
     }
 
     private static boolean matches(Pattern[] includePatterns, Pattern[] excludePatterns, String relativePath) {
+        String relativePathWithTrailingSlash = relativePath + "/";
         for (Pattern p : excludePatterns) {
-            if (p.matcher(relativePath).matches()) {
+            if (p.matcher(relativePath).matches() || p.matcher(relativePathWithTrailingSlash).matches()) {
                 return false;
             }
         }
 
         for (Pattern p : includePatterns) {
-            if (p.matcher(relativePath).matches()) {
+            if (p.matcher(relativePath).matches() || p.matcher(relativePathWithTrailingSlash).matches()) {
                 return true;
             }
         }

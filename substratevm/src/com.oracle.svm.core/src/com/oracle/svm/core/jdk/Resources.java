@@ -144,7 +144,7 @@ public final class Resources {
         if (resourceName == null) {
             return null;
         }
-        Enumeration<URL> urls = createURLs(resourceName);
+        Enumeration<URL> urls = createURLs(removeTrailingSlash(resourceName));
         return urls.hasMoreElements() ? urls.nextElement() : null;
     }
 
@@ -153,7 +153,7 @@ public final class Resources {
         if (resourceName == null) {
             return null;
         }
-        ResourceStorageEntry entry = Resources.get(resourceName);
+        ResourceStorageEntry entry = Resources.get(removeTrailingSlash(resourceName));
         if (entry == null) {
             return null;
         }
@@ -165,7 +165,7 @@ public final class Resources {
         if (resourceName == null) {
             return null;
         }
-        ResourceStorageEntry entry = Resources.get(resourceName);
+        ResourceStorageEntry entry = Resources.get(removeTrailingSlash(resourceName));
         if (entry == null) {
             return Collections.emptyEnumeration();
         }
@@ -175,6 +175,10 @@ public final class Resources {
             resourcesURLs.add(createURL(resourceName, index));
         }
         return Collections.enumeration(resourcesURLs);
+    }
+
+    private static String removeTrailingSlash(String resourceName) {
+        return !resourceName.endsWith("/") ? resourceName : resourceName.substring(0, resourceName.length() - 1);
     }
 }
 
