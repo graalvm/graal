@@ -382,7 +382,7 @@ public class RealLog extends Log {
         } else {
             string(value.getClass().getName());
             string("@");
-            hex(Word.objectToUntrackedPointer(value));
+            zhex(Word.objectToUntrackedPointer(value));
         }
         return this;
     }
@@ -442,9 +442,15 @@ public class RealLog extends Log {
         rawBytes(value, 0, value.length);
     }
 
+    @Override
+    public Log zhex(WordBase value) {
+        return zhex(value.rawValue());
+    }
+
     @NeverInline("Logging is always slow-path code")
     @Override
     public Log zhex(long value) {
+        string("0x");
         int zeros = Long.numberOfLeadingZeros(value);
         int hexZeros = zeros / 4;
         for (int i = 0; i < hexZeros; i += 1) {
@@ -457,6 +463,7 @@ public class RealLog extends Log {
     }
 
     private Log zhex(int value, int wordSizeInBytes) {
+        string("0x");
         int zeros = Integer.numberOfLeadingZeros(value) - 32 + (wordSizeInBytes * 8);
         int hexZeros = zeros / 4;
         for (int i = 0; i < hexZeros; i += 1) {
@@ -513,7 +520,7 @@ public class RealLog extends Log {
                     zhex(base.readLong(offset));
                     break;
             }
-            if ((offset + sanitizedWordsize) % 16 == 0) {
+            if ((offset + sanitizedWordsize) % 16 == 0 && (offset + sanitizedWordsize) < sanitizedWordsize * numWords) {
                 newline();
             }
         }

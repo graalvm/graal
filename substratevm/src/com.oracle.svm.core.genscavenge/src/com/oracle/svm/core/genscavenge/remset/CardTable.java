@@ -172,9 +172,9 @@ final class CardTable {
             if (chunkSpace.isYoungSpace()) {
                 UnsignedWord cardTableIndex = memoryOffsetToIndex(Word.objectToUntrackedPointer(parentObject).subtract(objectsStart));
                 Pointer cardTableAddress = cardTableStart.add(indexToTableOffset(cardTableIndex));
-                Log.log().string("Object ").hex(Word.objectToUntrackedPointer(parentObject)).string(" (").string(parentObject.getClass().getName()).string(") has an object reference at ")
-                                .hex(reference).string(" that points to ").hex(referencedObject).string(" (").string(obj.getClass().getName())
-                                .string("), which is in the young generation. However, the card table at ").hex(cardTableAddress).string(" is clean.").newline();
+                Log.log().string("Object ").zhex(Word.objectToUntrackedPointer(parentObject)).string(" (").string(parentObject.getClass().getName()).string(") has an object reference at ")
+                                .zhex(reference).string(" that points to ").zhex(referencedObject).string(" (").string(obj.getClass().getName())
+                                .string("), which is in the young generation. However, the card table at ").zhex(cardTableAddress).string(" is clean.").newline();
                 return false;
             }
         }
