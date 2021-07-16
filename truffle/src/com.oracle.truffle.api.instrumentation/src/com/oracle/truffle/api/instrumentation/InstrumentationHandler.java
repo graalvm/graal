@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * The Universal Permissive License (UPL), Version 1.0
@@ -129,6 +129,7 @@ final class InstrumentationHandler {
     private final Collection<EventBinding<? extends OutputStream>> outputStdBindings = new EventBindingList<>(1);
     private final Collection<EventBinding<? extends OutputStream>> outputErrBindings = new EventBindingList<>(1);
     private final Collection<EventBinding.Allocation<? extends AllocationListener>> allocationBindings = new EventBindingList<>(2);
+    private final Collection<EventBinding.Compilation<? extends CompilationEventListener>> compilationBindings = new EventBindingList<>(2);
     private final Collection<EventBinding<? extends ContextsListener>> contextsBindings = new EventBindingList<>(8);
     private final Collection<EventBinding<? extends ThreadsListener>> threadsBindings = new EventBindingList<>(8);
     private final Collection<EventBinding<? extends ThreadsActivationListener>> threadsActivationBindings = new EventBindingList<>(8);
@@ -477,6 +478,19 @@ final class InstrumentationHandler {
 
         if (TRACE) {
             trace("END: Added allocation binding %s%n", binding.getElement());
+        }
+        return binding;
+    }
+
+    private <T extends CompilationEventListener> EventBinding<T> addCompilationBinding(EventBinding.Compilation<T> binding) {
+        if (TRACE) {
+            trace("BEGIN: Adding compilation binding %s%n", binding.getElement());
+        }
+
+        this.compilationBindings.add(binding);
+
+        if (TRACE) {
+            trace("END: Added compilation binding %s%n", binding.getElement());
         }
         return binding;
     }
@@ -893,6 +907,10 @@ final class InstrumentationHandler {
         return addAllocationBinding(new EventBinding.Allocation<>(instrumenter, filter, listener));
     }
 
+    private <T extends CompilationEventListener> EventBinding<T> attachCompilationEventListener(AbstractInstrumenter instrumenter, T listener) {
+        return addCompilationBinding(new EventBinding.Compilation<>(instrumenter, listener));
+    }
+
     private <T extends ContextsListener> EventBinding<T> attachContextsListener(AbstractInstrumenter instrumenter, T listener, boolean includeActiveContexts) {
         assert listener != null;
         return addContextsBinding(new EventBinding<>(instrumenter, listener), includeActiveContexts);
@@ -958,6 +976,25 @@ final class InstrumentationHandler {
 
     boolean hasContextBindings() {
         return !contextsBindings.isEmpty();
+    }
+
+    // Thermometer TODO: I'd rather not have to add a new API here.
+    private CompilationState sampleCompilationState(AbstractInstrumenter instrumenter) {
+        if (TRACE) {
+            trace("BEGIN: Sampling compilation state%n");
+        }
+
+        try {
+            if (CompilationStateBackdoor.ACCESSOR == null) {
+                return CompilationState.ZERO;
+            } else {
+                return CompilationStateBackdoor.ACCESSOR.get();
+            }
+        } finally {
+            if (TRACE) {
+                trace("END: Sampling compilation state%n");
+            }
+        }
     }
 
     void notifyContextCreated(TruffleContext context) {
@@ -2430,6 +2467,17 @@ final class InstrumentationHandler {
         @Override
         public <T extends OutputStream> EventBinding<T> attachErrConsumer(T stream) {
             return InstrumentationHandler.this.attachOutputConsumer(this, stream, true);
+        }
+
+        @Override
+        public EventBinding<? extends CompilationEventListener> attachCompilationEventListener(CompilationEventListener listener) {
+            return InstrumentationHandler.this.attachCompilationEventListener(this, listener);
+        }
+
+        // XXXXXXXXXX
+        @Override
+        public CompilationState sampleCompilationState() {
+            return InstrumentationHandler.this.sampleCompilationState(this);
         }
 
         private void verifySourceOnly(SourceSectionFilter filter) {

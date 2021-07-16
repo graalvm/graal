@@ -61,6 +61,7 @@ import org.graalvm.compiler.truffle.common.TruffleOutputGroup;
 import org.graalvm.compiler.truffle.options.PolyglotCompilerOptions;
 import org.graalvm.compiler.truffle.options.PolyglotCompilerOptions.ExceptionAction;
 import org.graalvm.compiler.truffle.runtime.BackgroundCompileQueue.Priority;
+import org.graalvm.compiler.truffle.runtime.debug.CompilationStatusListener;
 import org.graalvm.compiler.truffle.runtime.debug.JFRListener;
 import org.graalvm.compiler.truffle.runtime.debug.StatisticsListener;
 import org.graalvm.compiler.truffle.runtime.debug.TraceASTCompilationListener;
@@ -433,6 +434,7 @@ public abstract class GraalTruffleRuntime implements TruffleRuntime, TruffleComp
     }
 
     protected void installDefaultListeners() {
+        CompilationStatusListener.install(this);
         TraceCompilationListener.install(this);
         TraceCompilationPolymorphismListener.install(this);
         TraceSplittingListener.install(this);
@@ -839,6 +841,11 @@ public abstract class GraalTruffleRuntime implements TruffleRuntime, TruffleComp
     public int getCompilationQueueSize() {
         BackgroundCompileQueue compileQueue = getCompileQueue();
         return compileQueue == null ? 0 : compileQueue.getQueueSize();
+    }
+
+    // Thermometer TODO: I'd rather not have to add a new API here.
+    public int getCompilationsRunning() {
+        return getCompileQueue().getRunning();
     }
 
     /**
