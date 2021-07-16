@@ -24,7 +24,10 @@
  */
 package com.oracle.svm.core.genscavenge;
 
+import org.graalvm.collections.EconomicMap;
 import org.graalvm.compiler.api.replacements.Fold;
+import org.graalvm.compiler.options.Option;
+import org.graalvm.compiler.options.OptionKey;
 import org.graalvm.compiler.word.Word;
 import org.graalvm.nativeimage.Platform;
 import org.graalvm.nativeimage.Platforms;
@@ -34,24 +37,68 @@ import org.graalvm.word.WordFactory;
 import com.oracle.svm.core.SubstrateGCOptions;
 import com.oracle.svm.core.SubstrateUtil;
 import com.oracle.svm.core.annotate.Uninterruptible;
-import com.oracle.svm.core.heap.GCCause;
 import com.oracle.svm.core.heap.PhysicalMemory;
 import com.oracle.svm.core.heap.ReferenceAccess;
-import com.oracle.svm.core.jdk.UninterruptibleUtils;
-import com.oracle.svm.core.option.RuntimeOptionValues;
-import com.oracle.svm.core.thread.VMOperation;
+import com.oracle.svm.core.option.HostedOptionKey;
+import com.oracle.svm.core.option.RuntimeOptionKey;
 import com.oracle.svm.core.util.UserError;
 import com.oracle.svm.core.util.VMError;
 
-/** HeapPolicy contains policies for the parameters and behaviors of the heap and collector. */
-public final class HeapPolicy {
-    private static final OutOfMemoryError OUT_OF_MEMORY_ERROR = new OutOfMemoryError("Garbage-collected heap size exceeded.");
+/** Constants and variables for the size and layout of the heap and behavior of the collector. */
+public final class HeapParameters {
+    public static final class Options {
+        @Option(help = "The maximum heap size as percent of physical memory") //
+        public static final RuntimeOptionKey<Integer> MaximumHeapSizePercent = new RuntimeOptionKey<>(80);
+
+        @Option(help = "The maximum size of the young generation as a percentage of the maximum heap size") //
+        public static final RuntimeOptionKey<Integer> MaximumYoungGenerationSizePercent = new RuntimeOptionKey<>(10);
+
+        @Option(help = "Bytes that can be allocated before (re-)querying the physical memory size") //
+        public static final HostedOptionKey<Long> AllocationBeforePhysicalMemorySize = new HostedOptionKey<>(1L * 1024L * 1024L);
+
+        @Option(help = "The size of an aligned chunk.") //
+        public static final HostedOptionKey<Long> AlignedHeapChunkSize = new HostedOptionKey<Long>(1L * 1024L * 1024L) {
+            @Override
+            protected void onValueUpdate(EconomicMap<OptionKey<?>, Object> values, Long oldValue, Long newValue) {
+                int multiple = 4096;
+                UserError.guarantee(newValue > 0 && newValue % multiple == 0, "%s value must be a multiple of %d.", getName(), multiple);
+            }
+        };
+
+        /*
+         * This should be a fraction of the size of an aligned chunk, else large small arrays will
+         * not fit in an aligned chunk.
+         */
+        @Option(help = "The size at or above which an array will be allocated in its own unaligned chunk.  0 implies (AlignedHeapChunkSize / 8).") //
+        public static final HostedOptionKey<Long> LargeArrayThreshold = new HostedOptionKey<>(LARGE_ARRAY_THRESHOLD_SENTINEL_VALUE);
+
+        @Option(help = "Fill unused memory chunks with a sentinel value.") //
+        public static final HostedOptionKey<Boolean> ZapChunks = new HostedOptionKey<>(false);
+
+        @Option(help = "Before use, fill memory chunks with a sentinel value.") //
+        public static final HostedOptionKey<Boolean> ZapProducedHeapChunks = new HostedOptionKey<>(false);
+
+        @Option(help = "After use, Fill memory chunks with a sentinel value.") //
+        public static final HostedOptionKey<Boolean> ZapConsumedHeapChunks = new HostedOptionKey<>(false);
+
+        @Option(help = "Trace heap chunks during collections, if +VerboseGC and +PrintHeapShape.") //
+        public static final RuntimeOptionKey<Boolean> TraceHeapChunks = new RuntimeOptionKey<>(false);
+
+        @Option(help = "Maximum number of survivor spaces.") //
+        public static final HostedOptionKey<Integer> MaxSurvivorSpaces = new HostedOptionKey<>(6);
+
+        @Option(help = "Determines if a full GC collects the young generation separately or together with the old generation.") //
+        public static final RuntimeOptionKey<Boolean> CollectYoungGenerationSeparately = new RuntimeOptionKey<>(false);
+
+        private Options() {
+        }
+    }
 
     static final long LARGE_ARRAY_THRESHOLD_SENTINEL_VALUE = 0;
     static final int ALIGNED_HEAP_CHUNK_FRACTION_FOR_LARGE_ARRAY_THRESHOLD = 8;
 
     @Platforms(Platform.HOSTED_ONLY.class)
-    HeapPolicy() {
+    static void initialize() {
         if (!SubstrateUtil.isPowerOf2(getAlignedHeapChunkSize().rawValue())) {
             throw UserError.abort("AlignedHeapChunkSize (%d) should be a power of 2.", getAlignedHeapChunkSize().rawValue());
         }
@@ -86,9 +133,9 @@ public final class HeapPolicy {
         return WordFactory.unsigned(bytes).multiply(1024).multiply(1024);
     }
 
-    @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
+    @Fold
     public static int getMaxSurvivorSpaces() {
-        return HeapPolicyOptions.MaxSurvivorSpaces.getValue();
+        return Options.MaxSurvivorSpaces.getValue();
     }
 
     /*
@@ -112,7 +159,7 @@ public final class HeapPolicy {
     }
 
     private static int getMaximumYoungGenerationSizePercent() {
-        int result = HeapPolicyOptions.MaximumYoungGenerationSizePercent.getValue();
+        int result = Options.MaximumYoungGenerationSizePercent.getValue();
         VMError.guarantee((result >= 0) && (result <= 100), "MaximumYoungGenerationSizePercent should be in [0 ..100]");
         return result;
     }
@@ -141,7 +188,7 @@ public final class HeapPolicy {
     }
 
     private static int getMaximumHeapSizePercent() {
-        int result = HeapPolicyOptions.MaximumHeapSizePercent.getValue();
+        int result = Options.MaximumHeapSizePercent.getValue();
         VMError.guarantee((result >= 0) && (result <= 100), "MaximumHeapSizePercent should be in [0 ..100]");
         return result;
     }
@@ -163,17 +210,9 @@ public final class HeapPolicy {
         return result;
     }
 
-    public static void setMaximumHeapSize(UnsignedWord value) {
-        RuntimeOptionValues.singleton().update(SubstrateGCOptions.MaxHeapSize, value.rawValue());
-    }
-
-    public static void setMinimumHeapSize(UnsignedWord value) {
-        RuntimeOptionValues.singleton().update(SubstrateGCOptions.MinHeapSize, value.rawValue());
-    }
-
     @Fold
     public static UnsignedWord getAlignedHeapChunkSize() {
-        return WordFactory.unsigned(HeapPolicyOptions.AlignedHeapChunkSize.getValue());
+        return WordFactory.unsigned(Options.AlignedHeapChunkSize.getValue());
     }
 
     @Fold
@@ -183,11 +222,11 @@ public final class HeapPolicy {
 
     @Fold
     public static UnsignedWord getLargeArrayThreshold() {
-        long largeArrayThreshold = HeapPolicyOptions.LargeArrayThreshold.getValue();
+        long largeArrayThreshold = Options.LargeArrayThreshold.getValue();
         if (LARGE_ARRAY_THRESHOLD_SENTINEL_VALUE == largeArrayThreshold) {
             return getAlignedHeapChunkSize().unsignedDivide(ALIGNED_HEAP_CHUNK_FRACTION_FOR_LARGE_ARRAY_THRESHOLD);
         } else {
-            return WordFactory.unsigned(HeapPolicyOptions.LargeArrayThreshold.getValue());
+            return WordFactory.unsigned(Options.LargeArrayThreshold.getValue());
         }
     }
 
@@ -196,11 +235,11 @@ public final class HeapPolicy {
      */
 
     public static boolean getZapProducedHeapChunks() {
-        return HeapPolicyOptions.ZapChunks.getValue() || HeapPolicyOptions.ZapProducedHeapChunks.getValue();
+        return Options.ZapChunks.getValue() || Options.ZapProducedHeapChunks.getValue();
     }
 
     public static boolean getZapConsumedHeapChunks() {
-        return HeapPolicyOptions.ZapChunks.getValue() || HeapPolicyOptions.ZapConsumedHeapChunks.getValue();
+        return Options.ZapChunks.getValue() || Options.ZapConsumedHeapChunks.getValue();
     }
 
     static {
@@ -213,75 +252,13 @@ public final class HeapPolicy {
     private static final UnsignedWord consumedHeapChunkZapInt = WordFactory.unsigned(0xdeadbeef);
     private static final UnsignedWord consumedHeapChunkZapWord = consumedHeapChunkZapInt.shiftLeft(32).or(consumedHeapChunkZapInt);
 
-    /*
-     * Collection-triggering Policies
-     */
-
-    private static final UninterruptibleUtils.AtomicUnsigned edenUsedBytes = new UninterruptibleUtils.AtomicUnsigned();
-    private static final UninterruptibleUtils.AtomicUnsigned youngUsedBytes = new UninterruptibleUtils.AtomicUnsigned();
-
-    public static void setEdenAndYoungGenBytes(UnsignedWord edenBytes, UnsignedWord youngBytes) {
-        assert VMOperation.isGCInProgress() : "would cause races otherwise";
-        youngUsedBytes.set(youngBytes);
-        edenUsedBytes.set(edenBytes);
-    }
-
-    public static void increaseEdenUsedBytes(UnsignedWord value) {
-        youngUsedBytes.addAndGet(value);
-        edenUsedBytes.addAndGet(value);
-    }
-
-    @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
-    public static UnsignedWord getYoungUsedBytes() {
-        assert !VMOperation.isGCInProgress() : "value is incorrect during a GC";
-        return youngUsedBytes.get();
-    }
-
-    public static UnsignedWord getEdenUsedBytes() {
-        assert !VMOperation.isGCInProgress() : "value is incorrect during a GC";
-        return edenUsedBytes.get();
-    }
-
-    private static UnsignedWord getAllocationBeforePhysicalMemorySize() {
-        return WordFactory.unsigned(HeapPolicyOptions.AllocationBeforePhysicalMemorySize.getValue());
-    }
-
-    public static void maybeCollectOnAllocation() {
-        if (GCImpl.hasNeverCollectPolicy()) {
-            // Don't initiate a safepoint if we won't do a collection anyways.
-            if (HeapPolicy.getEdenUsedBytes().aboveThan(HeapPolicy.getMaximumHeapSize())) {
-                throw OUT_OF_MEMORY_ERROR;
-            }
-        } else {
-            UnsignedWord maxYoungSize = getMaximumYoungGenerationSize();
-            boolean outOfMemory = maybeCollectOnAllocation(maxYoungSize);
-            if (outOfMemory) {
-                throw OUT_OF_MEMORY_ERROR;
-            }
-        }
-    }
-
-    @Uninterruptible(reason = "Avoid races with other threads that also try to trigger a GC")
-    private static boolean maybeCollectOnAllocation(UnsignedWord maxYoungSize) {
-        if (youngUsedBytes.get().aboveOrEqual(maxYoungSize)) {
-            return GCImpl.getGCImpl().collectWithoutAllocating(GenScavengeGCCause.OnAllocation, false);
-        }
-        return false;
-    }
-
-    public static void maybeCauseUserRequestedCollection() {
-        if (!SubstrateGCOptions.DisableExplicitGC.getValue()) {
-            HeapImpl.getHeapImpl().getGC().collectCompletely(GCCause.JavaLangSystemGC);
-        }
-    }
-
     public static final class TestingBackDoor {
         private TestingBackDoor() {
         }
 
         /** The size, in bytes, of what qualifies as a "large" array. */
         public static long getUnalignedObjectSize() {
-            return HeapPolicy.getLargeArrayThreshold().rawValue();
+            return HeapParameters.getLargeArrayThreshold().rawValue();
         }
     }
 
@@ -289,10 +266,14 @@ public final class HeapPolicy {
      * Periodic tasks
      */
 
+    private static UnsignedWord getAllocationBeforePhysicalMemorySize() {
+        return WordFactory.unsigned(Options.AllocationBeforePhysicalMemorySize.getValue());
+    }
+
     /** Sample the physical memory size, before the first collection but after some allocation. */
     static void samplePhysicalMemorySize() {
         if (HeapImpl.getHeapImpl().getGCImpl().getCollectionEpoch().equal(WordFactory.zero()) &&
-                        getYoungUsedBytes().aboveThan(getAllocationBeforePhysicalMemorySize())) {
+                        HeapImpl.getHeapImpl().getAccounting().getYoungUsedBytes().aboveThan(getAllocationBeforePhysicalMemorySize())) {
             PhysicalMemory.tryInitialize();
         }
     }

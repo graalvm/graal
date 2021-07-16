@@ -47,7 +47,7 @@ public class ChunkedImageHeapLayouter extends AbstractImageHeapLayouter<ChunkedI
         this.heapInfo = heapInfo;
         this.startOffset = startOffset;
         this.compressedNullPadding = compressedNullPadding;
-        this.hugeObjectThreshold = HeapPolicy.getLargeArrayThreshold().rawValue();
+        this.hugeObjectThreshold = HeapParameters.getLargeArrayThreshold().rawValue();
     }
 
     @Override

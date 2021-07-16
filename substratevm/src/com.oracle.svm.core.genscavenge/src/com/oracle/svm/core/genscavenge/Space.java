@@ -104,16 +104,16 @@ public final class Space {
     }
 
     public boolean isYoungSpace() {
-        return age <= HeapPolicy.getMaxSurvivorSpaces();
+        return age <= HeapParameters.getMaxSurvivorSpaces();
     }
 
     boolean isSurvivorSpace() {
-        return age > 0 && age <= HeapPolicy.getMaxSurvivorSpaces();
+        return age > 0 && age <= HeapParameters.getMaxSurvivorSpaces();
     }
 
     @Uninterruptible(reason = "Called from uninterruptible code.", mayBeInlined = true)
     public boolean isOldSpace() {
-        return age == (HeapPolicy.getMaxSurvivorSpaces() + 1);
+        return age == (HeapParameters.getMaxSurvivorSpaces() + 1);
     }
 
     int getAge() {
@@ -201,29 +201,6 @@ public final class Space {
         }
         trace.string("  returns: ").hex(result).string("]").newline();
         return result;
-    }
-
-    /**
-     * Promote the HeapChunk containing an Object from its original space to this Space.
-     *
-     * This turns all the Objects in the chunk from white to grey: the objects are in this Space,
-     * but have not yet had their interior pointers visited.
-     */
-    void promoteObjectChunk(Object original) {
-        if (ObjectHeaderImpl.isAlignedObject(original)) {
-            AlignedHeapChunk.AlignedHeader aChunk = AlignedHeapChunk.getEnclosingChunk(original);
-            Space originalSpace = HeapChunk.getSpace(aChunk);
-            if (originalSpace.isFromSpace()) {
-                promoteAlignedHeapChunk(aChunk, originalSpace);
-            }
-        } else {
-            assert ObjectHeaderImpl.isUnalignedObject(original);
-            UnalignedHeapChunk.UnalignedHeader uChunk = UnalignedHeapChunk.getEnclosingChunk(original);
-            Space originalSpace = HeapChunk.getSpace(uChunk);
-            if (originalSpace.isFromSpace()) {
-                promoteUnalignedHeapChunk(uChunk, originalSpace);
-            }
-        }
     }
 
     public void releaseChunks(ChunkReleaser chunkReleaser) {
@@ -427,7 +404,7 @@ public final class Space {
     }
 
     /** Promote an AlignedHeapChunk by moving it to this space. */
-    private void promoteAlignedHeapChunk(AlignedHeapChunk.AlignedHeader chunk, Space originalSpace) {
+    void promoteAlignedHeapChunk(AlignedHeapChunk.AlignedHeader chunk, Space originalSpace) {
         assert this != originalSpace && originalSpace.isFromSpace();
 
         originalSpace.extractAlignedHeapChunk(chunk);
@@ -548,7 +525,7 @@ public final class Space {
 
 /**
  * Accounting for a {@link Space}. For the eden space, the values are inaccurate outside of a GC
- * (see {@link HeapPolicy#getYoungUsedBytes()} and {@link HeapPolicy#getEdenUsedBytes()}.
+ * (see {@link HeapAccounting#getYoungUsedBytes()} and {@link HeapAccounting#getEdenUsedBytes()}.
  */
 final class SpaceAccounting {
     private long alignedCount;

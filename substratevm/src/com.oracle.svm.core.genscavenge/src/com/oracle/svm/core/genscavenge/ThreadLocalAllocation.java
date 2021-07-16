@@ -158,7 +158,7 @@ public final class ThreadLocalAllocation {
 
     /** Use the end of slow-path allocation as a place to run periodic hook code. */
     private static void runSlowPathHooks() {
-        HeapPolicy.samplePhysicalMemorySize();
+        HeapParameters.samplePhysicalMemorySize();
     }
 
     @RestrictHeapAccess(access = RestrictHeapAccess.Access.NO_ALLOCATION, reason = "Must not allocate in the implementation of allocation.")
@@ -166,7 +166,7 @@ public final class ThreadLocalAllocation {
         DeoptTester.disableDeoptTesting();
         try {
             HeapImpl.exitIfAllocationDisallowed("ThreadLocalAllocation.allocateNewInstance", DynamicHub.toClass(hub).getName());
-            HeapPolicy.maybeCollectOnAllocation();
+            GCImpl.getGCImpl().maybeCollectOnAllocation();
 
             AlignedHeader newTlab = HeapImpl.getChunkProvider().produceAlignedChunk();
             return allocateInstanceInNewTlab(hub, size, newTlab);
@@ -188,7 +188,7 @@ public final class ThreadLocalAllocation {
          * other objects in it, and the next collection could throw an OutOfMemoryError if this
          * object is allocated and survives.
          */
-        if (size.aboveOrEqual(HeapPolicy.getMaximumHeapSize())) {
+        if (size.aboveOrEqual(HeapParameters.getMaximumHeapSize())) {
             throw new OutOfMemoryError("Array allocation too large.");
         }
 
@@ -205,9 +205,9 @@ public final class ThreadLocalAllocation {
         DeoptTester.disableDeoptTesting();
         try {
             HeapImpl.exitIfAllocationDisallowed("Heap.allocateNewArray", DynamicHub.toClass(hub).getName());
-            HeapPolicy.maybeCollectOnAllocation();
+            GCImpl.getGCImpl().maybeCollectOnAllocation();
 
-            if (size.aboveOrEqual(HeapPolicy.getLargeArrayThreshold())) {
+            if (size.aboveOrEqual(HeapParameters.getLargeArrayThreshold())) {
                 /* Large arrays go into their own unaligned chunk. */
                 UnalignedHeapChunk.UnalignedHeader newTlabChunk = HeapImpl.getChunkProvider().produceUnalignedChunk(size);
                 return allocateLargeArrayInNewTlab(hub, length, size, fillStartOffset, newTlabChunk);

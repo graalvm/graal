@@ -49,7 +49,7 @@ public final class OldGeneration extends Generation {
     @Platforms(Platform.HOSTED_ONLY.class)
     OldGeneration(String name) {
         super(name);
-        int age = HeapPolicy.getMaxSurvivorSpaces() + 1;
+        int age = HeapParameters.getMaxSurvivorSpaces() + 1;
         this.fromSpace = new Space("oldFromSpace", true, age);
         this.toSpace = new Space("oldToSpace", false, age);
     }
@@ -68,36 +68,31 @@ public final class OldGeneration extends Generation {
     /** Promote an Object to ToSpace if it is not already in ToSpace. */
     @AlwaysInline("GC performance")
     @Override
-    public Object promoteObject(Object original, UnsignedWord header) {
-        if (ObjectHeaderImpl.isAlignedHeader(header)) {
-            AlignedHeapChunk.AlignedHeader chunk = AlignedHeapChunk.getEnclosingChunk(original);
-            Space originalSpace = HeapChunk.getSpace(chunk);
-            if (originalSpace.isFromSpace()) {
-                return promoteAlignedObject(original, originalSpace);
-            }
-        } else {
-            assert ObjectHeaderImpl.isUnalignedHeader(header);
-            UnalignedHeapChunk.UnalignedHeader chunk = UnalignedHeapChunk.getEnclosingChunk(original);
-            Space originalSpace = HeapChunk.getSpace(chunk);
-            if (originalSpace.isFromSpace()) {
-                promoteUnalignedChunk(chunk, originalSpace);
-            }
+    public Object promoteAlignedObject(Object original, AlignedHeapChunk.AlignedHeader originalChunk, Space originalSpace) {
+        if (originalSpace.isFromSpace()) {
+            return getToSpace().promoteAlignedObject(original, originalSpace);
         }
         return original;
     }
 
     @AlwaysInline("GC performance")
-    public Object promoteAlignedObject(Object original, Space originalSpace) {
-        return getToSpace().promoteAlignedObject(original, originalSpace);
+    @Override
+    protected Object promoteUnalignedObject(Object original, UnalignedHeapChunk.UnalignedHeader originalChunk, Space originalSpace) {
+        if (originalSpace.isFromSpace()) {
+            getToSpace().promoteUnalignedHeapChunk(originalChunk, originalSpace);
+        }
+        return original;
     }
 
-    @AlwaysInline("GC performance")
-    public void promoteUnalignedChunk(UnalignedHeapChunk.UnalignedHeader chunk, Space originalSpace) {
-        getToSpace().promoteUnalignedHeapChunk(chunk, originalSpace);
-    }
-
-    public void promoteObjectChunk(Object obj) {
-        getToSpace().promoteObjectChunk(obj);
+    @Override
+    protected void promoteChunk(HeapChunk.Header<?> originalChunk, boolean isAligned, Space originalSpace) {
+        if (originalSpace.isFromSpace()) {
+            if (isAligned) {
+                getToSpace().promoteAlignedHeapChunk((AlignedHeapChunk.AlignedHeader) originalChunk, originalSpace);
+            } else {
+                getToSpace().promoteUnalignedHeapChunk((UnalignedHeapChunk.UnalignedHeader) originalChunk, originalSpace);
+            }
+        }
     }
 
     void releaseSpaces(ChunkReleaser chunkReleaser) {
