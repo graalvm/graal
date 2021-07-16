@@ -51,6 +51,7 @@ public final class AArch64ArrayIndexOfOp extends AArch64LIRInstruction {
     public static final LIRInstructionClass<AArch64ArrayIndexOfOp> TYPE = LIRInstructionClass.create(AArch64ArrayIndexOfOp.class);
 
     private final boolean isUTF16;
+    private final boolean findTwoConsecutive;
     private final int arrayBaseOffset;
 
     @Def({REG}) protected Value resultValue;
@@ -63,11 +64,13 @@ public final class AArch64ArrayIndexOfOp extends AArch64LIRInstruction {
     @Temp({REG}) protected Value temp3;
     @Temp({REG}) protected Value temp4;
 
-    public AArch64ArrayIndexOfOp(int arrayBaseOffset, JavaKind valueKind, LIRGeneratorTool tool, Value result, Value arrayPtr, Value arrayLength, Value fromIndex, Value searchValue) {
+    public AArch64ArrayIndexOfOp(int arrayBaseOffset, JavaKind valueKind, boolean findTwoConsecutive, LIRGeneratorTool tool, Value result, Value arrayPtr, Value arrayLength, Value fromIndex,
+                    Value searchValue) {
         super(TYPE);
         assert byteMode(valueKind) || charMode(valueKind);
         this.arrayBaseOffset = arrayBaseOffset;
         this.isUTF16 = charMode(valueKind);
+        this.findTwoConsecutive = findTwoConsecutive;
         resultValue = result;
         arrayPtrValue = arrayPtr;
         arrayLengthValue = arrayLength;
@@ -107,6 +110,7 @@ public final class AArch64ArrayIndexOfOp extends AArch64LIRInstruction {
         Label end = new Label();
 
         final int chunkSize = 8;
+        final int charsToRead = findTwoConsecutive ? 2 : 1;
         int charSize;
         int shiftSize;
         long bitMask01;
@@ -125,6 +129,14 @@ public final class AArch64ArrayIndexOfOp extends AArch64LIRInstruction {
             bitMask7f = 0x7fff7fff7fff7fffL;
         }
 
+        /*
+         * @formatter:off
+         * The arguments satisfy the following constraints:
+         *  1. 0 <= fromIndex <= arrayLength - 1 (or 2 when findTwoConsecutive is true)
+         *  2. number of characters in searchChar is 1 (or 2 when findTwoConsecutive is true)
+         *  3. arrayLength - fromIndex >= 2 when findTwoConsecutive is true
+         * @formatter:on
+        */
         // Return for empty strings
         masm.mov(result, -1);
         masm.cbz(64, arrayLength, end);
@@ -137,12 +149,14 @@ public final class AArch64ArrayIndexOfOp extends AArch64LIRInstruction {
          * 4 UTF-16 or 8 Latin1 chars) else search chunk-by-chunk.
          */
         masm.sub(64, curIndex, arrayLength, fromIndex);
-        masm.cmp(64, curIndex, chunkSize / charSize);
-        masm.branchConditionally(ConditionFlag.GE, searchByChunk);
-
+        if (!findTwoConsecutive) {
+            masm.cmp(64, curIndex, chunkSize / charSize);
+            masm.branchConditionally(ConditionFlag.GE, searchByChunk);
+        }
         /*
-         * Search sequentially for small strings. Note that all indexing is done via a negative
-         * offset from the first position beyond the end of the array.
+         * While searching for one character (not two consecutive), search sequentially if the
+         * target string is small. Note that all indexing is done via a negative offset from the
+         * first position beyond the end of the array.
          */
         masm.mov(64, endIndex, arrayLength);
         // Set the base address to be at the end of the string, after the last char
@@ -151,16 +165,23 @@ public final class AArch64ArrayIndexOfOp extends AArch64LIRInstruction {
         masm.sub(64, curIndex, zr, curIndex, ShiftType.LSL, shiftSize);
         // Loop doing char-by-char search
         masm.bind(searchByCharLoop);
-        masm.ldr(charSize * Byte.SIZE, curChar, AArch64Address.createRegisterOffsetAddress(baseAddress, curIndex, false));
+        masm.ldr(charsToRead * charSize * Byte.SIZE, curChar, AArch64Address.createRegisterOffsetAddress(baseAddress, curIndex, false));
         masm.cmp(32, curChar, searchChar);
         masm.branchConditionally(ConditionFlag.EQ, match);
 
         /*
-         * Add charSize to the curIndex, and retry if the end of the array has not yet been reached
-         * (i.e. the curIndex is still < 0).
+         * Add charSize to the curIndex and retry if the end of the array has not yet been reached,
+         * i.e., the curIndex is still < 0. While searching for two consecutive chars, stop a char
+         * earlier to avoid reading past the array, i.e, retry as long as curIndex < -charSize.
          */
-        masm.adds(64, curIndex, curIndex, charSize);
-        masm.branchConditionally(ConditionFlag.MI, searchByCharLoop);
+        if (findTwoConsecutive) {
+            masm.add(64, curIndex, curIndex, charSize);
+            masm.cmp(64, curIndex, -charSize);
+            masm.branchConditionally(ConditionFlag.LT, searchByCharLoop);
+        } else {
+            masm.adds(64, curIndex, curIndex, charSize);
+            masm.branchConditionally(ConditionFlag.MI, searchByCharLoop);
+        }
         masm.jmp(end);
 
         // Search chunk-by-chunk for long strings
