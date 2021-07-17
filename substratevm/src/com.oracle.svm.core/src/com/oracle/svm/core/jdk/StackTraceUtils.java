@@ -26,6 +26,7 @@ package com.oracle.svm.core.jdk;
 
 import java.util.ArrayList;
 
+import com.oracle.svm.core.classinitialization.ClassInitializationInfo;
 import org.graalvm.compiler.serviceprovider.JavaVersionUtil;
 import org.graalvm.nativeimage.IsolateThread;
 import org.graalvm.util.DirectAnnotationAccess;
@@ -123,7 +124,8 @@ public class StackTraceUtils {
 
         if (!showReflectFrames && ((clazz == java.lang.reflect.Method.class && "invoke".equals(frameInfo.getSourceMethodName())) ||
                         (clazz == java.lang.reflect.Constructor.class && "newInstance".equals(frameInfo.getSourceMethodName())) ||
-                        (clazz == java.lang.Class.class && "newInstance".equals(frameInfo.getSourceMethodName())))) {
+                        (clazz == java.lang.Class.class && "newInstance".equals(frameInfo.getSourceMethodName())) ||
+                        (clazz == ClassInitializationInfo.class))) {
             /*
              * Ignore a reflective method / constructor invocation frame. Note that the classes
              * cannot be annotated with @InternalFrame because 1) they are JDK classes and 2) only
@@ -164,7 +166,8 @@ public class StackTraceUtils {
 
         if (!showReflectFrames && ((clazz.equals(metaAccess.lookupJavaType(java.lang.reflect.Method.class)) && "invoke".equals(method.getName())) ||
                         (clazz.equals(metaAccess.lookupJavaType(java.lang.reflect.Constructor.class)) && "newInstance".equals(method.getName())) ||
-                        (clazz.equals(metaAccess.lookupJavaType(java.lang.Class.class)) && "newInstance".equals(method.getName())))) {
+                        (clazz.equals(metaAccess.lookupJavaType(java.lang.Class.class)) && "newInstance".equals(method.getName())) ||
+                        (clazz.equals(metaAccess.lookupJavaType(ClassInitializationInfo.class))))) {
             return false;
         }
 
