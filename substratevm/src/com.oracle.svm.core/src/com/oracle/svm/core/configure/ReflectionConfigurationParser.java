@@ -27,6 +27,7 @@ package com.oracle.svm.core.configure;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -71,10 +72,12 @@ public final class ReflectionConfigurationParser<T> extends ConfigurationParser 
     }
 
     private void parseClass(Map<String, Object> data) {
+        List<String> optionalAttrs = Arrays.asList("allDeclaredConstructors", "allPublicConstructors",
+                        "allDeclaredMethods", "allPublicMethods", "allDeclaredFields", "allPublicFields",
+                        "allDeclaredClasses", "allPublicClasses", "methods", "fields");
+        checkAttributes(data, "reflection class descriptor object", Collections.singleton("name"), optionalAttrs);
+
         Object classObject = data.get("name");
-        if (classObject == null) {
-            throw new JSONParserException("Missing attribute 'name' in class descriptor object");
-        }
         String className = asString(classObject, "name");
 
         TypeResult<T> result = delegate.resolveTypeResult(className);
@@ -89,48 +92,53 @@ public final class ReflectionConfigurationParser<T> extends ConfigurationParser 
             String name = entry.getKey();
             Object value = entry.getValue();
             try {
-                if (name.equals("name")) {
-                    /* Already handled. */
-                } else if (name.equals("allDeclaredConstructors")) {
-                    if (asBoolean(value, "allDeclaredConstructors")) {
-                        delegate.registerDeclaredConstructors(clazz);
-                    }
-                } else if (name.equals("allPublicConstructors")) {
-                    if (asBoolean(value, "allPublicConstructors")) {
-                        delegate.registerPublicConstructors(clazz);
-                    }
-                } else if (name.equals("allDeclaredMethods")) {
-                    if (asBoolean(value, "allDeclaredMethods")) {
-                        delegate.registerDeclaredMethods(clazz);
-                    }
-                } else if (name.equals("allPublicMethods")) {
-                    if (asBoolean(value, "allPublicMethods")) {
-                        delegate.registerPublicMethods(clazz);
-                    }
-                } else if (name.equals("allDeclaredFields")) {
-                    if (asBoolean(value, "allDeclaredFields")) {
-                        delegate.registerDeclaredFields(clazz);
-                    }
-                } else if (name.equals("allPublicFields")) {
-                    if (asBoolean(value, "allPublicFields")) {
-                        delegate.registerPublicFields(clazz);
-                    }
-                } else if (name.equals("allDeclaredClasses")) {
-                    if (asBoolean(value, "allDeclaredClasses")) {
-                        delegate.registerDeclaredClasses(clazz);
-                    }
-                } else if (name.equals("allPublicClasses")) {
-                    if (asBoolean(value, "allPublicClasses")) {
-                        delegate.registerPublicClasses(clazz);
-                    }
-                } else if (name.equals("methods")) {
-                    parseMethods(asList(value, "Attribute 'methods' must be an array of method descriptors"), clazz);
-                } else if (name.equals("fields")) {
-                    parseFields(asList(value, "Attribute 'fields' must be an array of field descriptors"), clazz);
-                } else {
-                    throw new JSONParserException("Unknown attribute '" + name +
-                                    "' (supported attributes: allDeclaredConstructors, allPublicConstructors, allDeclaredMethods, allPublicMethods, allDeclaredFields, allPublicFields, methods, fields) in defintion of class " +
-                                    delegate.getTypeName(clazz));
+                switch (name) {
+                    case "allDeclaredConstructors":
+                        if (asBoolean(value, "allDeclaredConstructors")) {
+                            delegate.registerDeclaredConstructors(clazz);
+                        }
+                        break;
+                    case "allPublicConstructors":
+                        if (asBoolean(value, "allPublicConstructors")) {
+                            delegate.registerPublicConstructors(clazz);
+                        }
+                        break;
+                    case "allDeclaredMethods":
+                        if (asBoolean(value, "allDeclaredMethods")) {
+                            delegate.registerDeclaredMethods(clazz);
+                        }
+                        break;
+                    case "allPublicMethods":
+                        if (asBoolean(value, "allPublicMethods")) {
+                            delegate.registerPublicMethods(clazz);
+                        }
+                        break;
+                    case "allDeclaredFields":
+                        if (asBoolean(value, "allDeclaredFields")) {
+                            delegate.registerDeclaredFields(clazz);
+                        }
+                        break;
+                    case "allPublicFields":
+                        if (asBoolean(value, "allPublicFields")) {
+                            delegate.registerPublicFields(clazz);
+                        }
+                        break;
+                    case "allDeclaredClasses":
+                        if (asBoolean(value, "allDeclaredClasses")) {
+                            delegate.registerDeclaredClasses(clazz);
+                        }
+                        break;
+                    case "allPublicClasses":
+                        if (asBoolean(value, "allPublicClasses")) {
+                            delegate.registerPublicClasses(clazz);
+                        }
+                        break;
+                    case "methods":
+                        parseMethods(asList(value, "Attribute 'methods' must be an array of method descriptors"), clazz);
+                        break;
+                    case "fields":
+                        parseFields(asList(value, "Attribute 'fields' must be an array of field descriptors"), clazz);
+                        break;
                 }
             } catch (LinkageError e) {
                 handleError("Could not register " + delegate.getTypeName(clazz) + ": " + name + " for reflection.", e);
@@ -145,24 +153,9 @@ public final class ReflectionConfigurationParser<T> extends ConfigurationParser 
     }
 
     private void parseField(Map<String, Object> data, T clazz) {
-        String fieldName = null;
-        boolean allowWrite = false;
-        for (Map.Entry<String, Object> entry : data.entrySet()) {
-            String propertyName = entry.getKey();
-            if (propertyName.equals("name")) {
-                fieldName = asString(entry.getValue(), "name");
-            } else if (propertyName.equals("allowWrite")) {
-                allowWrite = asBoolean(entry.getValue(), "allowWrite");
-            } else if (propertyName.equals("allowUnsafeAccess")) {
-                // ignored (no longer required)
-            } else {
-                throw new JSONParserException("Unknown attribute '" + propertyName + "' (supported attributes: 'name') in definition of field for class '" + delegate.getTypeName(clazz) + "'");
-            }
-        }
-
-        if (fieldName == null) {
-            throw new JSONParserException("Missing attribute 'name' in definition of field for class " + delegate.getTypeName(clazz));
-        }
+        checkAttributes(data, "reflection field descriptor object", Collections.singleton("name"), Collections.singleton("allowWrite"));
+        String fieldName = asString(data.get("name"), "name");
+        boolean allowWrite = data.containsKey("allowWrite") && asBoolean(data.get("allowWrite"), "allowWrite");
 
         try {
             delegate.registerField(clazz, fieldName, allowWrite);
@@ -180,26 +173,15 @@ public final class ReflectionConfigurationParser<T> extends ConfigurationParser 
     }
 
     private void parseMethod(Map<String, Object> data, T clazz) {
-        String methodName = null;
+        checkAttributes(data, "reflection method descriptor object", Collections.singleton("name"), Collections.singleton("parameterTypes"));
+        String methodName = asString(data.get("name"), "name");
         List<T> methodParameterTypes = null;
-        for (Map.Entry<String, Object> entry : data.entrySet()) {
-            String propertyName = entry.getKey();
-            if (propertyName.equals("name")) {
-                methodName = asString(entry.getValue(), "name");
-            } else if (propertyName.equals("parameterTypes")) {
-                methodParameterTypes = parseMethodParameters(clazz, methodName, asList(entry.getValue(),
-                                "Attribute 'parameterTypes' must be a list of type names"));
-                if (methodParameterTypes == null) {
-                    return;
-                }
-            } else {
-                throw new JSONParserException(
-                                "Unknown attribute '" + propertyName + "' (supported attributes: 'name', 'parameterTypes') in definition of method for class '" + delegate.getTypeName(clazz) + "'");
+        if (data.containsKey("parameterTypes")) {
+            methodParameterTypes = parseMethodParameters(clazz, methodName, asList(data.get("parameterTypes"),
+                            "Attribute 'parameterTypes' must be a list of type names"));
+            if (methodParameterTypes == null) {
+                return;
             }
-        }
-
-        if (methodName == null) {
-            throw new JSONParserException("Missing attribute 'name' in definition of method for class '" + delegate.getTypeName(clazz) + "'");
         }
 
         boolean isConstructor = CONSTRUCTOR_NAME.equals(methodName);
