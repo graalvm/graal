@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,24 +24,26 @@
  */
 package com.oracle.svm.core.jdk;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
+import com.oracle.svm.core.annotate.UnknownObjectField;
+import org.graalvm.nativeimage.ImageSingletons;
+import org.graalvm.nativeimage.Platform;
+import org.graalvm.nativeimage.Platforms;
 
-import com.oracle.svm.core.annotate.Substitute;
-import com.oracle.svm.core.annotate.TargetClass;
-import com.oracle.svm.core.jdk.resources.ResourceStorageEntry;
+public final class BootModuleLayerSupport {
 
-@TargetClass(className = "java.lang.Module", onlyWith = JDK11OrLater.class)
-public final class Target_java_lang_Module {
-
-    @SuppressWarnings("static-method")
-    @Substitute
-    public InputStream getResourceAsStream(String name) {
-        ResourceStorageEntry entry = Resources.get(name);
-        return entry == null ? null : new ByteArrayInputStream(entry.getData().get(0));
+    public static BootModuleLayerSupport instance() {
+        return ImageSingletons.lookup(BootModuleLayerSupport.class);
     }
 
-    @TargetClass(className = "java.lang.Module", innerClass = "ReflectionData", onlyWith = JDK11OrLater.class)
-    private static final class Target_java_lang_Module_ReflectionData {
+    @UnknownObjectField
+    private ModuleLayer bootLayer;
+
+    @Platforms(Platform.HOSTED_ONLY.class)
+    public void setBootLayer(ModuleLayer bootLayer) {
+        this.bootLayer = bootLayer;
+    }
+
+    public ModuleLayer getBootLayer() {
+        return bootLayer;
     }
 }

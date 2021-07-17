@@ -24,24 +24,16 @@
  */
 package com.oracle.svm.core.jdk;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-
 import com.oracle.svm.core.annotate.Substitute;
 import com.oracle.svm.core.annotate.TargetClass;
-import com.oracle.svm.core.jdk.resources.ResourceStorageEntry;
 
-@TargetClass(className = "java.lang.Module", onlyWith = JDK11OrLater.class)
-public final class Target_java_lang_Module {
+@SuppressWarnings("unused")
+@TargetClass(className = "java.lang.ModuleLayer", onlyWith = JDK11OrLater.class)
+final class Target_java_lang_ModuleLayer {
 
-    @SuppressWarnings("static-method")
+    @SuppressWarnings("unused")
     @Substitute
-    public InputStream getResourceAsStream(String name) {
-        ResourceStorageEntry entry = Resources.get(name);
-        return entry == null ? null : new ByteArrayInputStream(entry.getData().get(0));
-    }
-
-    @TargetClass(className = "java.lang.Module", innerClass = "ReflectionData", onlyWith = JDK11OrLater.class)
-    private static final class Target_java_lang_Module_ReflectionData {
+    public static ModuleLayer boot() {
+        return BootModuleLayerSupport.instance().getBootLayer();
     }
 }
